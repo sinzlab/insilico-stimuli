@@ -94,6 +94,56 @@ class GaborSet(StimuliSet):
         return envelope * grating
 
 
+class PlaidsSet(GaborSet):
+    def __init__(self,
+                 canvas_size,
+                 center,
+                 size,
+                 spatial_frequency,
+                 orientation,
+                 phase,
+                 contrasts_preferred,
+                 contrasts_orthogonal,
+                 relative_sf=True):
+
+        self.canvas_size = canvas_size
+        self.center = center
+        self.size = size
+        self.spatial_frequency = spatial_frequency
+        self.orientation = orientation
+        self.phase = phase
+        self.contrasts_preferred = contrasts_preferred
+        self.contrasts_orthogonal = contrasts_orthogonal
+        self.relative_sf = relative_sf
+
+    def params(self):
+        return [
+            (self.contrasts_preferred, 'contrast_preferred'),
+            (self.contrasts_orthogonal, 'contrast_orthogonal')
+        ]
+
+    def stimulus(self, contrast_preferred, contrast_orthogonal, **kwargs):
+        gabor_preferred = super().stimulus(
+            location=self.center,
+            size=self.size,
+            spatial_frequency=self.spatial_frequency,
+            orientation=self.orientation,
+            phase=self.phase,
+            contrast=contrast_preferred
+        )
+
+        gabor_orthogonal = super().stimulus(
+            location=self.center,
+            size=self.size,
+            spatial_frequency=self.spatial_frequency,
+            orientation=self.orientation + np.pi/2,
+            phase=self.phase,
+            contrast=contrast_orthogonal
+        )
+
+        return gabor_preferred + gabor_orthogonal
+
+
 class DiffOfGaussians(StimuliSet):
     def __init__(self,
                  canvas_size,  # width x height
@@ -147,7 +197,6 @@ class DiffOfGaussians(StimuliSet):
         center_surround = center - contrast_scale_surround * surround
         center_surround = contrast * center_surround
         return center_surround
-
 
 
 class CenterSurround(StimuliSet):
