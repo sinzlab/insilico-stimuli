@@ -7,7 +7,7 @@ here = path.abspath(path.dirname(__file__))
 setup(
     name="insilico_stimuli",
     version="0.0.0",
-    description="Factory for Neural Networks",
+    description="Insilico Experiments",
     author="Dominik Kessler",
     author_email="domninik.kessler@uni-oldenburg.de",
     packages=find_packages(exclude=[]),
