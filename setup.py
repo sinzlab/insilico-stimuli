@@ -8,8 +8,8 @@ setup(
     name="insilico_stimuli",
     version="0.0.0",
     description="Insilico Experiments",
-    author="Dominik Kessler",
-    author_email="domninik.kessler@uni-oldenburg.de",
+    author="Ivan Ustyuzhaninov, Alexander Ecker, Dominik Kessler",
+    author_email="dominik.kessler@uni-oldenburg.de",
     packages=find_packages(exclude=[]),
     install_requires=['sphinx', 'pytorch_sphinx_theme', 'recommonmark'],
 )
