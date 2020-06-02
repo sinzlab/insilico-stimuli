@@ -97,10 +97,14 @@ class GaborSet(StimuliSet):
             canvas_size (list of int): The canvas size [width, height].
             center_range (list of int): The start and end locations for the center positions of the Gabor [x_start, x_end,
                 y_start, y_end].
-            sizes (list of float): Controls the size of the Gabor envelope. +/- 2 SD of envelope.
+            sizes (list of float): Controls the size of the Gabor envelope measured in pixels (pixel radius). The size
+                corresponds to 4*SD of the Gaussian envelope (+/- 2 SD of envelope).
             spatial_frequencies (list of float): The inverse of the wavelength of the cosine factor entered in
-                [cycles / envelop SD], i.e. depends on size. In order to prevent the occurrence of undesired effects at
-                the image borders, the wavelength value should be smaller than one fifth of the input image size.
+                [cycles / pixel]. By setting the parameter 'relative_sf'=True, the spatial frequency depends on size,
+                namely [cycles / envelope]. In this case, the value for the spatial frequency reflects how many periods
+                fit into the length of 'size' from the center.
+                In order to prevent the occurrence of undesired effects at the image borders, the wavelength value
+                should be smaller than one fifth of the input image size.
             contrasts (list of float): Defines the amplitude of the stimulus in %. Takes values from 0 to 1. For a
                 grey_level=-0.2 and pixel_boundaries=[-1,1], a contrast of 1 (=100%) means the amplitude of the Gabor
                 stimulus is 0.8.
@@ -173,8 +177,9 @@ class GaborSet(StimuliSet):
         num_params = self.num_params()
         c = np.unravel_index(idx, num_params)
         params = [p[0][c[i]] for i, p in enumerate(self.params())]
+        # Caution changing the class methods: it is crucial that the index of params matches the correct parameter
         if self.relative_sf:
-            params[2] /= params[1]
+            params[2] /= params[1]  # params[2] is spatial_frequency and params[1] is size.
         return params
 
     def stimulus(self, location, size, spatial_frequency, contrast, orientation, phase, gamma, **kwargs):
@@ -221,9 +226,14 @@ class PlaidsSet(GaborSet):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height]
-            center_ranges (list of int): The ranges for the center locations of the Plaid [x_start, x_end, y_start, y_end]
-            sizes (list of float): The overall size of the Plaid. +/- 2 SD of envelope
-            spatial_frequencies (list of float): cycles / envelop SD, i.e. depends on size
+            center_ranges (list of int): The ranges for the center locations of the Plaid [x_start, x_end, y_start,
+                y_end]
+            sizes (list of float): The overall size of the Plaid. Corresponds to 4*SD (+/- 2 SD) of the Gaussian
+                envelope.
+            spatial_frequencies (list of float): The inverse of the wavelength of the cosine factor entered in
+                [cycles / pixel]. By setting the parameter 'relative_sf'=True, the spatial frequency depends on size,
+                namely [cycles / envelope]. In this case, the value for the spatial frequency reflects how many periods
+                fit into the length of 'size' from the center.
             orientations (list or int): The orientation of the preferred Gabor.
             phases (list or int): The phase offset of the cosine factor of the Plaid. Same value is used for both
                 preferred and orthogonal Gabor.
@@ -441,8 +451,9 @@ class CenterSurround(StimuliSet):
     A class to generate 'Center-Surround' stimuli with optional center and/or surround gratings.
     """
     def __init__(self, canvas_size, center_range, sizes_total, sizes_center, sizes_surround, contrasts_center,
-                 contrasts_surround, orientations_center, orientations_surround, spatial_frequencies, phases_center,
-                 phases_surround, grey_level, pixel_boundaries=None, locations=None, relative_sf=True):
+                 contrasts_surround, orientations_center, orientations_surround, spatial_frequencies_center,
+                 phases_center, grey_level, spatial_frequencies_surround=None, phases_surround=None,
+                 pixel_boundaries=None, locations=None):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height].
@@ -461,19 +472,19 @@ class CenterSurround(StimuliSet):
             orientations_surround (list or int): The orientation of the surround gratings. Takes values from 0 to pi. If
                 orientations_surround is handed to the class as an integer, e.g. orientations_surround = 3, then the
                 range from [0,pi) will be divided into 3 evenly spaced orientations, namely 0*pi/3, 1*pi/3 and 2*pi/3.
-            spatial_frequencies (list of float): The inverse of the wavelength of the gratings in [cycles / envelop SD],
-                i.e. depends on size.
+            spatial_frequencies_center (list of float): The inverse of the wavelength of the center gratings in
+                absolute units [cycles / pixel].
+            spatial_frequencies_surround (list of float or None): The inverse of the wavelength of the center gratings
+                in absolute units [cycles / pixel]. If not specified, use same value as in 'spatial_frequencies_center'.
             phases_center (list or int): The phase offset of the center sinusoidal gratings. Takes values from -pi to
                 pi.
-            phases_surround (list or int): The phase offset of the surround sinusoidal gratings. Takes values from -pi
-                to pi.
+            phases_surround (list or int or None): The phase offset of the surround sinusoidal gratings. Takes values
+                from -pi to pi. If not specified, use same value as in 'phases_center'.
             grey_level (float): The mean luminance/pixel value.
             pixel_boundaries (list of float or None): Range of values the monitor can display. Handed to the class in
                 the format [lower pixel value, upper pixel value], default is [-1,1].
             locations (list of list or None): list of lists specifying the center locations (default: None). If
                 'locations' is not specified, the center positions are generated from 'center_range'.
-            relative_sf (bool or None): Scale 'spatial_frequencies' by size (True, default), otherwise use absolute
-                units (False).
         """
         self.canvas_size = canvas_size
         self.cr = center_range
@@ -492,7 +503,7 @@ class CenterSurround(StimuliSet):
         self.grey_level = grey_level
 
         if pixel_boundaries is None:
-            self.pixel_boundaries =[-1,1]
+            self.pixel_boundaries = [-1, 1]
         else:
             self.pixel_boundaries = pixel_boundaries
 
@@ -506,18 +517,24 @@ class CenterSurround(StimuliSet):
         else:
             self.orientations_surround = orientations_surround
 
+        self.spatial_frequencies_center = spatial_frequencies_center
+
+        if spatial_frequencies_surround is None:
+            self.spatial_frequencies_surround = [-6666]  # random iterable label of length>0 beyond parameter range
+        else:
+            self.spatial_frequencies_surround = spatial_frequencies_surround
+
         if type(phases_center) is not list:
             self.phases_center = np.arange(phases_center) * (2*pi) / phases_center
         else:
             self.phases_center = phases_center
 
-        if type(phases_surround) is not list:
+        if phases_surround is None:
+            self.phases_surround = [-6666]  # arbitrary iterable label of length > 0 outside of valid parameter range
+        elif type(phases_surround) is not list:
             self.phases_surround = np.arange(phases_surround) * (2 * pi) / phases_surround
         else:
             self.phases_surround = phases_surround
-
-        self.spatial_frequencies = spatial_frequencies
-        self.relative_sf = relative_sf
 
     def params(self):
         return [
@@ -529,13 +546,26 @@ class CenterSurround(StimuliSet):
             (self.contrasts_surround, 'contrast_surround'),
             (self.orientations_center, 'orientation_center'),
             (self.orientations_surround, 'orientation_surround'),
-            (self.spatial_frequencies, 'spatial_frequency'),
+            (self.spatial_frequencies_center, 'spatial_frequency_center'),
+            (self.spatial_frequencies_surround, 'spatial_frequency_surround'),
             (self.phases_center, 'phase_center'),
             (self.phases_surround, 'phase_surround')
         ]
 
+    def params_from_idx(self, idx):
+        num_params = self.num_params()
+        c = np.unravel_index(idx, num_params)
+        params = [p[0][c[i]] for i, p in enumerate(self.params())]
+        # Caution changing the class methods: it is crucial that the index of params matches the correct parameter
+        if self.phases_surround == [-6666]:  # if phases_surround was not specified, use the value of phases_center
+            params[11] = params[10]
+        if self.spatial_frequencies_surround == [-6666]:  # if spatial_frequencies_surround was not specified
+            params[9] = params[8]
+        return params
+
     def stimulus(self, location, size_total, size_center, size_surround, contrast_center, contrast_surround,
-                 orientation_center, orientation_surround, spatial_frequency, phase_center, phase_surround):
+                 orientation_center, orientation_surround, spatial_frequency_center, spatial_frequency_surround,
+                 phase_center, phase_surround):
         """
         Args:
             location (list of int): The center position of the Center-Surround stimulus.
@@ -546,8 +576,8 @@ class CenterSurround(StimuliSet):
             contrast_surround (float): The contrast of the surround grating in %. Takes values from 0 to 1.
             orientation_center (float): The orientation of the center grating.
             orientation_surround (float): The orientation of the surround grating.
-            spatial_frequency (float): The inverse of the wavelength of the gratings. Same wavelength is used for center
-                and surround.
+            spatial_frequency_center (float): The inverse of the wavelength of the center gratings.
+            spatial_frequency_surround (float): The inverse of the wavelength of the surround gratings.
             phase_center (float): The cosine phase-offset of the center grating.
             phase_surround (float): The cosine phase-offset of the surround grating.
 
@@ -576,8 +606,8 @@ class CenterSurround(StimuliSet):
         envelope_center = (norm_xy_center <= size_center * size_total)
         envelope_surround = (norm_xy_surround > size_surround * size_total) * (norm_xy_surround <= size_total)
 
-        grating_center = np.cos(spatial_frequency * x_center * (2*pi) + phase_center)
-        grating_surround = np.cos(spatial_frequency * x_surround * (2*pi) + phase_surround)
+        grating_center = np.cos(spatial_frequency_center * x_center * (2*pi) + phase_center)
+        grating_surround = np.cos(spatial_frequency_surround * x_surround * (2*pi) + phase_surround)
 
         # add contrast
         amplitude_center = contrast_center * min(abs(self.pixel_boundaries[0] - self.grey_level),
