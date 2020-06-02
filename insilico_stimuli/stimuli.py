@@ -34,7 +34,7 @@ class StimuliSet:
             list: parameter combinations of the desired index 'idx'
         '''
         num_params = self.num_params()
-        c = np.unravel_index(idx, num_params)  # c is tuple
+        c = np.unravel_index(idx, num_params)
         params = [p[0][c[i]] for i, p in enumerate(self.params())]  # p[0] is parameter content
         return params
 
@@ -70,9 +70,8 @@ class StimuliSet:
         """
         num_stims = np.prod(self.num_params())
         for batch_start in np.arange(0, num_stims, batch_size):
-            batch_end = np.minimum(batch_start + batch_size, num_stims)  # if num_stims < batch_start + batch_size => end of image set
-            images = [self.stimulus_from_idx(i)
-                          for i in range(batch_start, batch_end)]
+            batch_end = np.minimum(batch_start + batch_size, num_stims)
+            images = [self.stimulus_from_idx(i) for i in range(batch_start, batch_end)]
             yield np.array(images)
 
     def images(self):
