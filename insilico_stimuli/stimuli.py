@@ -2,6 +2,7 @@
 
 import numpy as np
 from numpy import pi
+#from nnfabrik.utility.hypersearch import Bayesian
 
 class StimuliSet:
     """
@@ -96,8 +97,9 @@ class GaborSet(StimuliSet):
             canvas_size (list of int): The canvas size [width, height].
             center_range (list of int): The start and end locations for the center positions of the Gabor [x_start, x_end,
                 y_start, y_end].
-            sizes (list of float): Controls the size of the Gabor envelope measured in pixels (pixel radius). The size
-                corresponds to 4*SD of the Gaussian envelope (+/- 2 SD of envelope).
+            sizes (list of float): Controls the size of the Gabor envelope in direction of the longer axis of the
+                ellipse. It is measured in pixels (pixel radius). The size corresponds to 4*SD of the Gaussian envelope
+                (+/- 2 SD of envelope).
             spatial_frequencies (list of float): The inverse of the wavelength of the cosine factor entered in
                 [cycles / pixel]. By setting the parameter 'relative_sf'=True, the spatial frequency depends on size,
                 namely [cycles / envelope]. In this case, the value for the spatial frequency reflects how many periods
@@ -119,7 +121,7 @@ class GaborSet(StimuliSet):
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             eccentricities (list or None): The eccentricity determining the ellipticity of the Gabor. Takes values from
-                [0,1]. For 1 it becomes rectangular.
+                [0,1].
             locations (list of list or None): list of lists specifying the position of the Gabor. If 'locations' is not
                 specified, the Gabors are centered around the grid specified in 'center_range'.
             relative_sf (bool or None): Scale 'spatial_frequencies' by size (True, default) or use absolute units
@@ -181,11 +183,44 @@ class GaborSet(StimuliSet):
             params[2] /= params[1]  # params[2] is spatial_frequency and params[1] is size.
         return params
 
+    def density(self, xy, gammas, R, size):
+        """
+        compute the density value for given scalars x and y.
+
+        Args:
+            xy (numpy.array): 1x2 vector with the data point of interest
+            gammas (list of float): eccentricity parameters
+            R (numpy.array): rotation matrix
+            size (float): corresponds to the size of the Gaussian
+
+        Returns (numpy.array): density value for the point [x,y]
+        """
+        S_inv = np.diag(1 / np.array(gammas))
+        return np.exp(-0.5 * xy.T @ R @ S_inv @ R.T @ xy / (size / 4)**2)
+
+    def p(self, X, Y, gammas, R, size):
+        """
+        This function reshapes the grid X and Y into an array of points, computes the density values on these points
+        and reshapes them back into a 2D matrix.
+
+        Args:
+            X (numpy.array): values of the grid in x-direction
+            Y (numpy.array): values of the grid in y-direction
+            gammas (list of float): eccentricity parameters
+            R (numpy.array): rotation matrix
+            size (float): corresponds to the size of the Gaussian
+
+        Returns (numpy.array): 2D matrix containing the density values for the rotated, elliptical Gaussian
+
+        """
+        shape = X.shape
+        return np.reshape([self.density(np.array([x, y]), gammas, R, size) for x, y in zip(X.ravel(), Y.ravel())],shape)
+
     def stimulus(self, location, size, spatial_frequency, contrast, orientation, phase, gamma, **kwargs):
         """
         Args:
             location (list of int): The center position of the Gabor.
-            size (float): The overall size of the Gabor envelope.
+            size (float): The length of the longer axis of the ellipse of the Gabor envelope.
             spatial_frequency (float): The inverse of the wavelength of the cosine factor.
             contrast (float): Defines the amplitude of the stimulus in %. Takes values from 0 to 1.
             orientation (float): The orientation of the normal to the parallel stripes.
@@ -197,15 +232,37 @@ class GaborSet(StimuliSet):
         """
         x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
                            np.arange(self.canvas_size[1]) - location[1])
+        coords = np.stack([x.flatten(), y.flatten()])
+
+        # rotation matrix R
+        R_env = np.array([[np.cos(-orientation - np.pi/2), -np.sin(-orientation - np.pi/2)],
+                      [np.sin(-orientation - np.pi/2),  np.cos(-orientation - np.pi/2)]])
+
+        # Gaussian envelope
+        envelope = self.p(x, y, gammas=[1, gamma], R=R_env, size=size)
+
         R = np.array([[np.cos(orientation), -np.sin(orientation)],
                       [np.sin(orientation),  np.cos(orientation)]])
 
-        coords = np.stack([x.flatten(), y.flatten()])
-        x, y = R.dot(coords).reshape((2, ) + x.shape)
+        x, y = R.dot(coords).reshape((2, ) + x.shape)  # 2 x 36 x 64
 
-        envelope = np.exp(-(x ** 2 + gamma * y ** 2) / (2 * (size/4)**2))
-        grating = np.cos(spatial_frequency * x * (2*pi) + phase)
+        # sinusoidal grating
+        grating = np.cos(spatial_frequency * (2*pi) * x + phase)
+
+        #envelope = np.exp(-(x ** 2 + gamma * y ** 2) / (2 * (size/4)**2))
+        #grating = np.cos(spatial_frequency * x * (2*pi) + phase)
+
         gabor_no_contrast = envelope * grating
+
+        # matrix multiplication solution
+        #xy = np.stack([x.flatten(), y.flatten()])
+        #S = np.array([(1, 0), (0, 1/gamma)])
+        #if relative_gamma_orient:
+        #    pos = xy.transpose().dot(R).dot(S).dot(R.transpose()).dot(xy)
+        #else:
+        #    pos = xy.transpose().dot(S).dot(xy)
+        #envelope = np.exp(-1 / (2 * (size/4)**2) * pos)
+        #envelope = envelope.reshape((2, ) + x.shape)
 
         # add contrast
         amplitude = contrast * min(abs(self.pixel_boundaries[0] - self.grey_level),
@@ -358,8 +415,9 @@ class DiffOfGaussians(StimuliSet):
             sizes (list of float): Standard deviation of the center Gaussian.
             sizes_scale_surround (list of float): Scaling factor defining how much larger the standard deviation of the
                 surround Gaussian is relative to the size of the center Gaussian. Must have values larger than 1.
-            contrasts (list of float): Contrast of the center Gaussian in %. Takes values from 0 to 1.
+            contrasts (list of float): Contrast of the center Gaussian in %. Takes values from -1 to 1.
             contrasts_scale_surround (list of float): Contrast of the surround Gaussian relative to the center Gaussian.
+                Should be between 0 and 1.
             grey_level (float): The mean luminance/pixel value.
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
