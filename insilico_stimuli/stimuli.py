@@ -234,37 +234,19 @@ class GaborSet(StimuliSet):
                            np.arange(self.canvas_size[1]) - location[1])
         coords = np.stack([x.flatten(), y.flatten()])
 
-        # rotation matrix R
+        # rotation matrix R for envelope
         R_env = np.array([[np.cos(-orientation - np.pi/2), -np.sin(-orientation - np.pi/2)],
                       [np.sin(-orientation - np.pi/2),  np.cos(-orientation - np.pi/2)]])
-
-        # Gaussian envelope
         envelope = self.p(x, y, gammas=[1, gamma], R=R_env, size=size)
 
+        # rotation matrix for grating
         R = np.array([[np.cos(orientation), -np.sin(orientation)],
                       [np.sin(orientation),  np.cos(orientation)]])
-
-        x, y = R.dot(coords).reshape((2, ) + x.shape)  # 2 x 36 x 64
-
-        # sinusoidal grating
+        x, y = R.dot(coords).reshape((2, ) + x.shape)
         grating = np.cos(spatial_frequency * (2*pi) * x + phase)
 
-        #envelope = np.exp(-(x ** 2 + gamma * y ** 2) / (2 * (size/4)**2))
-        #grating = np.cos(spatial_frequency * x * (2*pi) + phase)
-
-        gabor_no_contrast = envelope * grating
-
-        # matrix multiplication solution
-        #xy = np.stack([x.flatten(), y.flatten()])
-        #S = np.array([(1, 0), (0, 1/gamma)])
-        #if relative_gamma_orient:
-        #    pos = xy.transpose().dot(R).dot(S).dot(R.transpose()).dot(xy)
-        #else:
-        #    pos = xy.transpose().dot(S).dot(xy)
-        #envelope = np.exp(-1 / (2 * (size/4)**2) * pos)
-        #envelope = envelope.reshape((2, ) + x.shape)
-
         # add contrast
+        gabor_no_contrast = envelope * grating
         amplitude = contrast * min(abs(self.pixel_boundaries[0] - self.grey_level),
                                    abs(self.pixel_boundaries[1] - self.grey_level))
         gabor = amplitude * gabor_no_contrast + self.grey_level
