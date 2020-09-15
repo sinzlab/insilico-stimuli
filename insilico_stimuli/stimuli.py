@@ -1,8 +1,12 @@
 # when adding a stimulus class, always add at least the methods "params" and "stimulus".
 
 import numpy as np
+import torch
+import matplotlib.pyplot as plt
 from numpy import pi
-#from nnfabrik.utility.hypersearch import Bayesian
+from numpy import random as rn
+from ax.service.managed_loop import optimize
+from functools import partial
 
 class StimuliSet:
     """
@@ -252,6 +256,271 @@ class GaborSet(StimuliSet):
         gabor = amplitude * gabor_no_contrast + self.grey_level
 
         return gabor
+
+    def dict_param_infinite(self, location=None, size=None, spatial_frequency=[1e-2, 0.5], contrast=[0.6, 1.0],
+                            orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
+        """
+        Initializes a dictionary of all the parameters for which we draw random samples.
+
+        Args:
+            location (list of list or None): center of stimulus, default for width is
+                [0, number of horizontal pixels] and default for height is [0, number of vertical pixels].
+            size (list of float or None): size of stimulus, default is [0, 8 * max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [0,100).
+            contrast (list of float or None): contrast of the image, default is [0,1).
+            orientation (list of float or None): orientation of the grating relative to the envelope, default is
+                [0, pi).
+            phase (list of float or None): phase offset of the grating, default is [0, pi).
+            gamma (list of float or None): eccentricity parameter of the envelope, default is [0,1).
+            grey_level (list of float or None): mean pixel intensity of the stimulus, default is the range given in
+                self.pixel_boundaries.
+
+        Returns:
+            dict of dict: dictionary of all parameters and their respective attributes, i.e. 'type', 'bounds' and
+            'log_scale'.
+        """
+        if location is None:
+            location_width_range = [0.0 + 5.0, float(self.canvas_size[0])]
+            location_height_range = [0.0 + 5.0, float(self.canvas_size[1])]
+        else:
+            location_width_range = location[0]
+            location_height_range = location[1]
+        location_width = {"name": "location_width", "type": "range", "bounds": location_width_range, "log_scale": False}
+        location_height = {"name": "location_height", "type": "range", "bounds": location_height_range,
+                           "log_scale": False}
+
+        if size is None:
+            size_range = [0.0, float(max(self.canvas_size))]
+        else:
+            size_range = size
+        size = {"name": "size", "type": "range", "bounds": size_range, "log_scale": False}
+
+        sf_range = spatial_frequency
+        spatial_frequency = {"name": "spatial_frequency", "type": "range", "bounds": sf_range, "log_scale": False}
+
+        contrast_range = contrast
+        contrast = {"name": "contrast", "type": "range", "bounds": contrast_range, "log_scale": False}
+
+        orientation_range = orientation
+        orientation = {"name": "orientation", "type": "range", "bounds": orientation_range, "log_scale": False}
+
+        phase_range = phase
+        phase = {"name": "phase", "type": "range", "bounds": phase_range, "log_scale": False}
+
+        gamma_range = gamma
+        gamma = {"name": "gamma", "type": "range", "bounds": gamma_range, "log_scale": False}
+
+        grey_level_range = grey_level
+        grey_level = {"name": "grey_level", "type": "fixed", "bounds": grey_level_range, "log_scale": False}
+
+        param_dict = {"location_width": location_width,
+                      "location_height": location_height,
+                      "size": size,
+                      "spatial_frequency": spatial_frequency,
+                      "contrast": contrast,
+                      "orientation": orientation,
+                      "phase": phase,
+                      "gamma": gamma,
+                      "grey_level": grey_level}
+        return param_dict
+
+    def gen_params_infinite(self, location=None, size=None, spatial_frequency=None, contrast=None, orientation=None,
+                            phase=None, gamma=None, grey_level=None, relative_sf=None):
+        """
+        Generates random sample for each parameter.
+
+        Args:
+            location (dict, optional): center of stimulus, default for width is [0, number of horizontal pixels] and
+                default for height is [0, number of vertical pixels].
+            size (dict, optional): size of envelope, default is [0, 8 * max(self.canvas_size)].
+            spatial_frequency (dict, optional): spatial frequency of grating, default is [0,100).
+            contrast (dict, optional): contrast of the image, default is [0,1).
+            orientation (dict, optional): orientation of the grating relative to the envelope, default is [0, pi).
+            phase (dict, optional): phase offset of the grating, default is [0, pi).
+            gamma (dict, optional): eccentricity parameter of the envelope, default is [0,1).
+            grey_level (dict, optional): mean pixel intensity of the stimulus, default is the range given in
+                self.pixel_boundaries.
+            relative_sf (bool): Scale 'spatial_frequencies' by size (True) or use absolute units (False)
+
+        Returns:
+            dict: A dictionary containing the parameters with their sampled values.
+        """
+        rn.seed(None)  # truely random samples
+        param_dict = self.dict_param_infinite(location, size, spatial_frequency, contrast, orientation, phase, gamma,
+                                              grey_level)
+        auto_param_dict = {}
+        for param in param_dict:
+            if param_dict[param]['type'] == 'range':
+                if param == 'location':
+                    low_bound1 = param_dict[param]['bounds'][0][0]
+                    low_bound2 = param_dict[param]['bounds'][1][0]
+                    high_bound1 = param_dict[param]['bounds'][0][1] + 1
+                    high_bound2 = param_dict[param]['bounds'][1][1] + 1
+                    #par_dict[par]['gen_value'] = list(rn.randint([0, 0], [high_bound1, high_bound2]))
+                    auto_param_dict[param] = list(rn.randint([low_bound1, low_bound2], [high_bound1, high_bound2]))
+                else:
+                    low_bound = param_dict[param]['bounds'][0]
+                    high_bound = param_dict[param]['bounds'][1]
+                    #par_dict[par]['gen_value'] = list(rn.uniform(low_bound, high_bound))
+                    auto_param_dict[param] = [rn.uniform(low_bound, high_bound)]
+            elif param_dict[param]['type'] == 'choice':
+                n = len(param_dict[param]['bounds'])
+                u = rn.uniform(0, n)
+                auto_param_dict[param] = param_dict[param]['bounds'][int(np.floor(u))]
+        return auto_param_dict
+
+    def get_image_from_params(self, auto_params):
+        """
+        Generates the Gabor corresponding to the parameters given in auto_params.
+
+        Args:
+            auto_params (dict): {'location_width': value1, 'location_height': value2, 'size': value3, ...}
+
+        Returns:
+            numpy.array: Pixel intensities of the desired Gabor stimulus.
+
+        """
+        auto_params['location'] = [auto_params['location_width'], auto_params['location_height']]
+        del auto_params['location_width'], auto_params['location_height']
+        return self.stimulus(**auto_params)
+
+    def train_evaluate(self, auto_params, model, data_key, unit_idx):
+        """
+        Evaluate the model activation of a specific neuron given a Gabor stimulus.
+
+        Args:
+            auto_params (dict): {'par1': value1, 'par2': value2, ...}
+            model (Encoder): model
+            data_key (str): session ID
+            unit_idx (int): index of model neuron
+
+        Returns:
+            float: The activation of the Gabor image of the model neuron specified in unit_idx
+        """
+        image = self.get_image_from_params(auto_params)
+        image_tensor = torch.tensor(image).expand(1, 1, self.canvas_size[1], self.canvas_size[0]).float()
+        activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
+        return float(activation[unit_idx])
+
+    def find_optimal_gabor_bayes(self, model, data_key, unit_idx, total_trials=30,
+                                 location=None, size=None, spatial_frequency=[1e-2, 0.5], contrast=[0.6, 1.0],
+                                 orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
+        """
+        Runs parameter optimization (refer to https://ax.dev/docs/api.html).
+
+        Args:
+            model (Encoder): the underlying model of interest.
+            data_key (str): session ID of model.
+            unit_idx (int): unit index of desired neuron.
+            total_trials (int or None): number of optimization steps (default is 30 trials).
+            location (list of lists or None): center of stimulus, default for width is
+                [0, number of horizontal pixels] and default for height is [0, number of vertical pixels].
+            size (list of float or None): size of stimulus, default is [0, 8 * max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [0,100).
+            contrast (list of float or None): contrast of the image, default is [0,1).
+            orientation (list of float or None): orientation of the grating relative to the envelope, default is
+                [0, pi).
+            phase (list of float or None): phase offset of the grating, default is [0, pi).
+            gamma (list of float or None): eccentricity parameter of the envelope, default is [0,1).
+            grey_level (list of float or None): mean pixel intensity of the stimulus, default is the range given in
+                self.pixel_boundaries.
+
+        Returns:
+            dict: The returned dictionary has the variable name in the key and the optimal value in the values.
+        """
+        auto_param_dict = self.dict_param_infinite(location, size, spatial_frequency, contrast, orientation, phase,
+                                                   gamma, grey_level)
+        parameters = list(auto_param_dict.values())
+
+        def train_evaluate_helper(auto_params):
+            return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
+
+        best_params, values, _, _ = optimize(parameters=parameters,
+                                             evaluation_function=train_evaluate_helper,
+                                             objective_name='activation',
+                                             total_trials=total_trials)
+        return best_params, values
+
+    def find_optimal_gabor_bruteforce(self, model, data_key, batch_size=100, return_activations=False,
+                                      unit_idx=None, plotflag=False):
+        """
+        Finds optimal parameter combination for all units based on brute force testing method.
+
+        Args:
+            model (Encoder): The evaluated model as an encoder class
+            data_key (char): data key or session ID of model
+            batch_size (int, optional): number of images per batch
+            return_activations (bool or None): return maximal activation alongside its parameter combination
+            unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
+                parameters for all model neurons.
+            plotflag (bool or None): if True, plots the evolution of the maximal activation of the number of images
+                tested (default: False).
+
+        Returns
+            - params (list of dict): The optimal parameter settings for each of the different units
+            - max_activation (np.array of float): The maximal firing rate for each of the units over all images tested
+        """
+        N_images = np.prod(self.num_params())  # number of all parameter combinations
+        N_units = model.readout[data_key].outdims  # number of units
+
+        max_act_evo = np.zeros((N_images + 1, N_units))  # init storage of maximal activation evolution
+        activations = np.zeros(N_units)  # init activation array for all tested images
+
+        # divide set of images in batches before showing it to the model
+        for batch_idx, batch in enumerate(self.image_batches(batch_size)):
+
+            if batch.shape[0] != batch_size:
+                batch_size = batch.shape[0]
+
+            # create images and compute activation for current batch
+            images_batch = batch.reshape((batch_size,) + tuple(self.canvas_size))
+            images_batch = np.expand_dims(images_batch, axis=1)
+            images_batch = torch.tensor(images_batch).float()
+            activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
+
+            # evolution of maximal activation
+            for unit in range(0, N_units):
+                for idx, act in enumerate(activations_batch):
+                    i = (idx + 1) + batch_idx * batch_size
+                    max_act_evo[i, unit] = max(act[unit], max_act_evo[i - 1, unit])
+
+            # max and argmax for current batch
+            activations = np.vstack([activations, activations_batch])
+
+        # delete the first row (only zeros) by which we initialized
+        activations = np.delete(activations, 0, axis=0)
+
+        # get maximal activations for each unit
+        max_activations = np.amax(activations, axis=0)
+
+        # get the image index of the maximal activations
+        argmax_activations = np.argmax(activations, axis=0)
+
+        params = [None] * N_units  # init list with parameter dictionaries
+        for unit, opt_param_idx in enumerate(argmax_activations):
+            params[unit] = self.params_dict_from_idx(opt_param_idx)
+
+        # plot the evolution of the maximal activation for each additional image
+        if plotflag:
+            fig, ax = plt.subplots()
+            for unit in range(0, N_units):
+                ax.plot(np.arange(0, N_images + 1), max_act_evo[:, unit])
+            plt.xlabel('Number of Images')
+            plt.ylabel('Maximal Activation')
+
+        # catch return options
+        if unit_idx is not None:
+            if return_activations:
+                return params[unit_idx], activations[unit_idx], max_activations
+            else:
+                return params[unit_idx], activations[unit_idx]
+        else:
+            if return_activations:
+                return params, activations, max_activations
+            else:
+                return params, activations
+
+
 
 
 class PlaidsSet(GaborSet):
