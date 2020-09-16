@@ -257,31 +257,29 @@ class GaborSet(StimuliSet):
 
         return gabor
 
-    def dict_param_infinite(self, location=None, size=None, spatial_frequency=[1e-2, 0.5], contrast=[0.6, 1.0],
+    def dict_param_infinite(self, location=None, size=None, spatial_frequency=[1e-2, 0.25], contrast=[0.4, 1.0],
                             orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
         """
-        Initializes a dictionary of all the parameters for which we draw random samples.
+        Create a dictionary of all Gabor parameters to an ax-friendly format.
 
         Args:
-            location (list of list or None): center of stimulus, default for width is
-                [0, number of horizontal pixels] and default for height is [0, number of vertical pixels].
-            size (list of float or None): size of stimulus, default is [0, 8 * max(self.canvas_size)].
-            spatial_frequency (list of float or None): spatial frequency of grating, default is [0,100).
-            contrast (list of float or None): contrast of the image, default is [0,1).
-            orientation (list of float or None): orientation of the grating relative to the envelope, default is
-                [0, pi).
-            phase (list of float or None): phase offset of the grating, default is [0, pi).
-            gamma (list of float or None): eccentricity parameter of the envelope, default is [0,1).
-            grey_level (list of float or None): mean pixel intensity of the stimulus, default is the range given in
-                self.pixel_boundaries.
+            location (list of list or None): center of stimulus, default for width is [10.0, # horizontal pixels - 10.0]
+                and default for height is [10.0, # vertical pixels - 10.0].
+            size (list of float or None): size of envelope, default is [10.0, max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [1e-2, 0.25].
+            contrast (list of float or None): contrast of the image, default is [0.4, 1.0].
+            orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
+            phase (list of float or None): phase offset of the grating, default is [0.0, pi].
+            gamma (list of float or None): eccentricity parameter of the envelope, default is [1e-1, 1.0].
+            grey_level (list of float or None): mean pixel intensity of the stimulus, default is [-1e-2, 1e-2].
 
         Returns:
-            dict of dict: dictionary of all parameters and their respective attributes, i.e. 'type', 'bounds' and
-            'log_scale'.
+            dict of dict: dictionary of all parameters and their respective attributes, i.e. 'name, 'type', 'bounds' and
+                'log_scale'.
         """
         if location is None:
-            location_width_range = [0.0 + 5.0, float(self.canvas_size[0])]
-            location_height_range = [0.0 + 5.0, float(self.canvas_size[1])]
+            location_width_range = [0.0 + 10.0, float(self.canvas_size[0]) - 10.0]
+            location_height_range = [0.0 + 10.0, float(self.canvas_size[1]) - 10.0]
         else:
             location_width_range = location[0]
             location_height_range = location[1]
@@ -290,7 +288,7 @@ class GaborSet(StimuliSet):
                            "log_scale": False}
 
         if size is None:
-            size_range = [0.0, float(max(self.canvas_size))]
+            size_range = [10.0, float(max(self.canvas_size))]
         else:
             size_range = size
         size = {"name": "size", "type": "range", "bounds": size_range, "log_scale": False}
@@ -325,22 +323,20 @@ class GaborSet(StimuliSet):
         return param_dict
 
     def gen_params_infinite(self, location=None, size=None, spatial_frequency=None, contrast=None, orientation=None,
-                            phase=None, gamma=None, grey_level=None, relative_sf=None):
+                            phase=None, gamma=None, grey_level=None):
         """
         Generates random sample for each parameter.
 
         Args:
-            location (dict, optional): center of stimulus, default for width is [0, number of horizontal pixels] and
-                default for height is [0, number of vertical pixels].
-            size (dict, optional): size of envelope, default is [0, 8 * max(self.canvas_size)].
-            spatial_frequency (dict, optional): spatial frequency of grating, default is [0,100).
-            contrast (dict, optional): contrast of the image, default is [0,1).
-            orientation (dict, optional): orientation of the grating relative to the envelope, default is [0, pi).
-            phase (dict, optional): phase offset of the grating, default is [0, pi).
-            gamma (dict, optional): eccentricity parameter of the envelope, default is [0,1).
-            grey_level (dict, optional): mean pixel intensity of the stimulus, default is the range given in
-                self.pixel_boundaries.
-            relative_sf (bool): Scale 'spatial_frequencies' by size (True) or use absolute units (False)
+            location (list of list or None): center of stimulus, default for width is [0.0, # horizontal pixels]
+                and default for height is [0.0, # vertical pixels].
+            size (list of float or None): size of envelope, default is [0.0, max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [5e-3, 0.5].
+            contrast (list of float or None): contrast of the image, default is [0.0, 1.0].
+            orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
+            phase (list of float or None): phase offset of the grating, default is [0.0, pi].
+            gamma (list of float or None): eccentricity parameter of the envelope, default is [1e-1, 1.0].
+            grey_level (list of float or None): mean pixel intensity of the stimulus, default is [-1e-2, 1e-2].
 
         Returns:
             dict: A dictionary containing the parameters with their sampled values.
@@ -356,17 +352,17 @@ class GaborSet(StimuliSet):
                     low_bound2 = param_dict[param]['bounds'][1][0]
                     high_bound1 = param_dict[param]['bounds'][0][1] + 1
                     high_bound2 = param_dict[param]['bounds'][1][1] + 1
-                    #par_dict[par]['gen_value'] = list(rn.randint([0, 0], [high_bound1, high_bound2]))
                     auto_param_dict[param] = list(rn.randint([low_bound1, low_bound2], [high_bound1, high_bound2]))
                 else:
                     low_bound = param_dict[param]['bounds'][0]
                     high_bound = param_dict[param]['bounds'][1]
-                    #par_dict[par]['gen_value'] = list(rn.uniform(low_bound, high_bound))
                     auto_param_dict[param] = [rn.uniform(low_bound, high_bound)]
             elif param_dict[param]['type'] == 'choice':
                 n = len(param_dict[param]['bounds'])
                 u = rn.uniform(0, n)
                 auto_param_dict[param] = param_dict[param]['bounds'][int(np.floor(u))]
+            elif param_dict[param]['type'] == 'fixed':
+                auto_param_dict[param] = param_dict[param]['bounds']
         return auto_param_dict
 
     def get_image_from_params(self, auto_params):
@@ -374,7 +370,8 @@ class GaborSet(StimuliSet):
         Generates the Gabor corresponding to the parameters given in auto_params.
 
         Args:
-            auto_params (dict): {'location_width': value1, 'location_height': value2, 'size': value3, ...}
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'size': value3, 'spatial_frequency' : ...}
 
         Returns:
             numpy.array: Pixel intensities of the desired Gabor stimulus.
@@ -386,16 +383,17 @@ class GaborSet(StimuliSet):
 
     def train_evaluate(self, auto_params, model, data_key, unit_idx):
         """
-        Evaluate the model activation of a specific neuron given a Gabor stimulus.
+        Evaluates the activation of a specific neuron in an evaluated (e.g. nnfabrik) model given the Gabor parameters.
 
         Args:
-            auto_params (dict): {'par1': value1, 'par2': value2, ...}
-            model (Encoder): model
-            data_key (str): session ID
-            unit_idx (int): index of model neuron
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'size': value3, 'spatial_frequency' : ...}
+            model (Encoder): evaluated model of interest.
+            data_key (str): session ID.
+            unit_idx (int): index of the desired model neuron.
 
         Returns:
-            float: The activation of the Gabor image of the model neuron specified in unit_idx
+            float: The activation of the Gabor image of the model neuron specified in unit_idx.
         """
         image = self.get_image_from_params(auto_params)
         image_tensor = torch.tensor(image).expand(1, 1, self.canvas_size[1], self.canvas_size[0]).float()
@@ -403,35 +401,38 @@ class GaborSet(StimuliSet):
         return float(activation[unit_idx])
 
     def find_optimal_gabor_bayes(self, model, data_key, unit_idx, total_trials=30,
-                                 location=None, size=None, spatial_frequency=[1e-2, 0.5], contrast=[0.6, 1.0],
+                                 location=None, size=None, spatial_frequency=[1e-2, 0.25], contrast=[0.4, 1.0],
                                  orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
         """
-        Runs parameter optimization (refer to https://ax.dev/docs/api.html).
+        Runs Bayesian parameter optimization to find optimal Gabor (refer to https://ax.dev/docs/api.html).
 
         Args:
             model (Encoder): the underlying model of interest.
             data_key (str): session ID of model.
             unit_idx (int): unit index of desired neuron.
             total_trials (int or None): number of optimization steps (default is 30 trials).
-            location (list of lists or None): center of stimulus, default for width is
-                [0, number of horizontal pixels] and default for height is [0, number of vertical pixels].
-            size (list of float or None): size of stimulus, default is [0, 8 * max(self.canvas_size)].
-            spatial_frequency (list of float or None): spatial frequency of grating, default is [0,100).
-            contrast (list of float or None): contrast of the image, default is [0,1).
-            orientation (list of float or None): orientation of the grating relative to the envelope, default is
-                [0, pi).
-            phase (list of float or None): phase offset of the grating, default is [0, pi).
-            gamma (list of float or None): eccentricity parameter of the envelope, default is [0,1).
-            grey_level (list of float or None): mean pixel intensity of the stimulus, default is the range given in
-                self.pixel_boundaries.
+            location (list of list or None): center of stimulus, default for width is [10.0, # horizontal pixels - 10.0]
+                and default for height is [10.0, # vertical pixels - 10.0].
+            size (list of float or None): size of envelope, default is [10.0, max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [1e-2, 0.25].
+            contrast (list of float or None): contrast of the image, default is [0.4, 1.0].
+            orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
+            phase (list of float or None): phase offset of the grating, default is [0.0, pi].
+            gamma (list of float or None): eccentricity parameter of the envelope, default is [1e-1, 1.0].
+            grey_level (list of float or None): mean pixel intensity of the stimulus, default is [-1e-2, 1e-2].
 
-        Returns:
-            dict: The returned dictionary has the variable name in the key and the optimal value in the values.
+        Returns
+            - list of dict: The list entries are dictionaries which store the optimal parameter combinations for the
+            corresponding unit. It has the variable name in the key and the optimal value in the values, i.e.
+            [{'location_width': value1, 'location_height': value2, 'size': value3, ...}, ...]
+            - list of tuple: The unit activations of the found optimal Gabor of the form [({'activation': mean_unit1},
+            {'activation': {'activation': sem_unit1}}), ...].
         """
         auto_param_dict = self.dict_param_infinite(location, size, spatial_frequency, contrast, orientation, phase,
                                                    gamma, grey_level)
         parameters = list(auto_param_dict.values())
 
+        # define helper function as input to 'optimize'
         def train_evaluate_helper(auto_params):
             return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
 
@@ -447,9 +448,9 @@ class GaborSet(StimuliSet):
         Finds optimal parameter combination for all units based on brute force testing method.
 
         Args:
-            model (Encoder): The evaluated model as an encoder class
-            data_key (char): data key or session ID of model
-            batch_size (int, optional): number of images per batch
+            model (Encoder): The evaluated model as an encoder class.
+            data_key (char): data key or session ID of model.
+            batch_size (int, optional): number of images per batch.
             return_activations (bool or None): return maximal activation alongside its parameter combination
             unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
                 parameters for all model neurons.
@@ -519,7 +520,6 @@ class GaborSet(StimuliSet):
                 return params, activations, max_activations
             else:
                 return params, activations
-
 
 
 
