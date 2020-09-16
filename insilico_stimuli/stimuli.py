@@ -309,7 +309,7 @@ class GaborSet(StimuliSet):
         gamma = {"name": "gamma", "type": "range", "bounds": gamma_range, "log_scale": False}
 
         grey_level_range = grey_level
-        grey_level = {"name": "grey_level", "type": "fixed", "bounds": grey_level_range, "log_scale": False}
+        grey_level = {"name": "grey_level", "type": "range", "bounds": grey_level_range, "log_scale": False}
 
         param_dict = {"location_width": location_width,
                       "location_height": location_height,
@@ -520,7 +520,6 @@ class GaborSet(StimuliSet):
                 return params, activations, max_activations
             else:
                 return params, activations
-
 
 
 class PlaidsSet(GaborSet):
