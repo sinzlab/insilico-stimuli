@@ -8,6 +8,7 @@ from numpy import random as rn
 from ax.service.managed_loop import optimize
 from functools import partial
 
+
 class StimuliSet:
     """
     Base class for all other stimuli classes.
@@ -99,8 +100,8 @@ class GaborSet(StimuliSet):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height].
-            center_range (list of int): The start and end locations for the center positions of the Gabor [x_start, x_end,
-                y_start, y_end].
+            center_range (list of int): The start and end locations for the center positions of the Gabor [x_start,
+                x_end, y_start, y_end].
             sizes (list of float): Controls the size of the Gabor envelope in direction of the longer axis of the
                 ellipse. It is measured in pixels (pixel radius). The size corresponds to 4*SD of the Gaussian envelope
                 (+/- 2 SD of envelope).
@@ -121,7 +122,7 @@ class GaborSet(StimuliSet):
                 [rad] and can range from [0,pi). If phases is handed to the class as an integer, e.g. phases = 4, then
                 the range from [0,2*pi) will be divided in 4 evenly spaced phase offsets, namely 0*2pi/4, 1*2pi/4,
                 2*2pi/4 and 3*2pi/4.
-            grey_level (float): Mean luminance/pixel value.
+            grey_level (float): Mean luminance / pixel value.
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             eccentricities (list or None): The eccentricity determining the ellipticity of the Gabor. Takes values from
@@ -167,6 +168,11 @@ class GaborSet(StimuliSet):
 
         self.relative_sf = relative_sf
 
+        # get the parameters in an ax-friendly format
+        self.auto_params = self.dict_param_infinite(location=None, size=None, spatial_frequency=[1e-2, 0.25],
+                                                    contrast=[0.4, 1.0], orientation=[0.0, pi], phase=[0.0, pi],
+                                                    gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2])
+
     def params(self):
         return [
             (self.locations, 'location'),
@@ -187,9 +193,10 @@ class GaborSet(StimuliSet):
             params[2] /= params[1]  # params[2] is spatial_frequency and params[1] is size.
         return params
 
-    def density(self, xy, gammas, R, size):
+    @staticmethod
+    def density(xy, gammas, R, size):
         """
-        compute the density value for given scalars x and y.
+        Computes the Gaussian density value for given scalars x and y.
 
         Args:
             xy (numpy.array): 1x2 vector with the data point of interest
@@ -257,7 +264,7 @@ class GaborSet(StimuliSet):
 
         return gabor
 
-    def dict_param_infinite(self, location=None, size=None, spatial_frequency=[1e-2, 0.25], contrast=[0.4, 1.0],
+    def dict_param_infinite(self, location=None, size=None, spatial_frequency=[5e-3, 0.25], contrast=[0.4, 1.0],
                             orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
         """
         Create a dictionary of all Gabor parameters to an ax-friendly format.
@@ -266,7 +273,7 @@ class GaborSet(StimuliSet):
             location (list of list or None): center of stimulus, default for width is [10.0, # horizontal pixels - 10.0]
                 and default for height is [10.0, # vertical pixels - 10.0].
             size (list of float or None): size of envelope, default is [10.0, max(self.canvas_size)].
-            spatial_frequency (list of float or None): spatial frequency of grating, default is [1e-2, 0.25].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [5e-3, 0.25].
             contrast (list of float or None): contrast of the image, default is [0.4, 1.0].
             orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
             phase (list of float or None): phase offset of the grating, default is [0.0, pi].
@@ -328,11 +335,11 @@ class GaborSet(StimuliSet):
         Generates random sample for each parameter.
 
         Args:
-            location (list of list or None): center of stimulus, default for width is [0.0, # horizontal pixels]
-                and default for height is [0.0, # vertical pixels].
-            size (list of float or None): size of envelope, default is [0.0, max(self.canvas_size)].
-            spatial_frequency (list of float or None): spatial frequency of grating, default is [5e-3, 0.5].
-            contrast (list of float or None): contrast of the image, default is [0.0, 1.0].
+            location (list of list or None): center of stimulus, default for width is [10.0, # horizontal pixels - 10.0]
+                and default for height is [10.0, # vertical pixels - 10.0].
+            size (list of float or None): size of envelope, default is [10.0, max(self.canvas_size)].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [5e-3, 0.25].
+            contrast (list of float or None): contrast of the image, default is [0.4, 1.0].
             orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
             phase (list of float or None): phase offset of the grating, default is [0.0, pi].
             gamma (list of float or None): eccentricity parameter of the envelope, default is [1e-1, 1.0].
@@ -401,7 +408,7 @@ class GaborSet(StimuliSet):
         return float(activation[unit_idx])
 
     def find_optimal_gabor_bayes(self, model, data_key, unit_idx, total_trials=30,
-                                 location=None, size=None, spatial_frequency=[1e-2, 0.25], contrast=[0.4, 1.0],
+                                 location=None, size=None, spatial_frequency=[5e-3, 0.25], contrast=[0.4, 1.0],
                                  orientation=[0.0, pi], phase=[0.0, pi], gamma=[1e-1, 1.0], grey_level=[-1e-2, 1e-2]):
         """
         Runs Bayesian parameter optimization to find optimal Gabor (refer to https://ax.dev/docs/api.html).
@@ -414,7 +421,7 @@ class GaborSet(StimuliSet):
             location (list of list or None): center of stimulus, default for width is [10.0, # horizontal pixels - 10.0]
                 and default for height is [10.0, # vertical pixels - 10.0].
             size (list of float or None): size of envelope, default is [10.0, max(self.canvas_size)].
-            spatial_frequency (list of float or None): spatial frequency of grating, default is [1e-2, 0.25].
+            spatial_frequency (list of float or None): spatial frequency of grating, default is [5e-3, 0.25].
             contrast (list of float or None): contrast of the image, default is [0.4, 1.0].
             orientation (list of float or None): orientation of grating relative to envelope, default is [0.0, pi].
             phase (list of float or None): phase offset of the grating, default is [0.0, pi].
@@ -703,7 +710,8 @@ class DiffOfGaussians(StimuliSet):
             (self.contrasts_scale_surround, 'contrast_scale_surround')
         ]
 
-    def gaussian_density(self, coords, mean, scale):
+    @staticmethod
+    def gaussian_density(coords, mean, scale):
         """
         Args:
             coords: The evaluation points with shape (#points, 2) as numpy.ndarray.
@@ -719,7 +727,7 @@ class DiffOfGaussians(StimuliSet):
     def stimulus(self, location, size, size_scale_surround, contrast, contrast_scale_surround, **kwargs):
         """
         Args:
-            location (list of int): The center position of the DoG.
+            location (list of float): The center position of the DoG.
             size (float): Standard deviation of the center Gaussian.
             size_scale_surround (float): Scaling factor defining how much larger the standard deviation of the surround
                 Gaussian is relative to the size of the center Gaussian. Must have values larger than 1.
@@ -875,7 +883,7 @@ class CenterSurround(StimuliSet):
                  phase_center, phase_surround):
         """
         Args:
-            location (list of int): The center position of the Center-Surround stimulus.
+            location (list of float): The center position of the Center-Surround stimulus.
             size_total (float): The overall size of the Center-Surround stimulus.
             size_center (float): The size of the center as a fraction of the overall size.
             size_surround (float): The size of the surround as a fraction of the overall size.
