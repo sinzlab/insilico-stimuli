@@ -181,7 +181,8 @@ class GaborSet(StimuliSet):
             (self.contrasts, 'contrast'),
             (self.orientations, 'orientation'),
             (self.phases, 'phase'),
-            (self.gammas, 'gamma')
+            (self.gammas, 'gamma'),
+            (self.grey_level, 'grey_level')
         ]
 
     def params_from_idx(self, idx):
@@ -227,7 +228,7 @@ class GaborSet(StimuliSet):
         shape = X.shape
         return np.reshape([self.density(np.array([x, y]), gammas, R, size) for x, y in zip(X.ravel(), Y.ravel())],shape)
 
-    def stimulus(self, location, size, spatial_frequency, contrast, orientation, phase, gamma, **kwargs):
+    def stimulus(self, location, size, spatial_frequency, contrast, orientation, phase, gamma, grey_level, **kwargs):
         """
         Args:
             location (list of int): The center position of the Gabor.
@@ -237,6 +238,7 @@ class GaborSet(StimuliSet):
             orientation (float): The orientation of the normal to the parallel stripes.
             phase (float): The phase offset of the cosine factor.
             gamma (float): The spatial aspect ratio reflecting the ellipticity of the Gabor.
+            grey_level (float): The mean luminance.
             **kwargs: Arbitrary keyword arguments.
 
         Returns: Image of the desired Gabor stimulus as numpy.ndarray.
@@ -258,9 +260,9 @@ class GaborSet(StimuliSet):
 
         # add contrast
         gabor_no_contrast = envelope * grating
-        amplitude = contrast * min(abs(self.pixel_boundaries[0] - self.grey_level),
-                                   abs(self.pixel_boundaries[1] - self.grey_level))
-        gabor = amplitude * gabor_no_contrast + self.grey_level
+        amplitude = contrast * min(abs(self.pixel_boundaries[0] - grey_level),
+                                   abs(self.pixel_boundaries[1] - grey_level))
+        gabor = amplitude * gabor_no_contrast + grey_level
 
         return gabor
 
@@ -612,11 +614,12 @@ class PlaidsSet(GaborSet):
             (self.orientations, 'orientation'),
             (self.phases, 'phase'),
             (self.gammas, 'gamma'),
+            (self.grey_level, 'grey_level'),
             (self.contrasts_preferred, 'contrast_preferred'),
             (self.contrasts_orthogonal, 'contrast_orthogonal')
         ]
 
-    def stimulus(self, location, size, spatial_frequency, orientation, phase, gamma,
+    def stimulus(self, location, size, spatial_frequency, orientation, phase, gamma, grey_level,
                  contrast_preferred, contrast_orthogonal, **kwargs):
         """
         Args:
@@ -640,6 +643,7 @@ class PlaidsSet(GaborSet):
             orientation=orientation,
             phase=phase,
             gamma=gamma,
+            grey_level=grey_level,
             **kwargs
         )
 
@@ -651,6 +655,7 @@ class PlaidsSet(GaborSet):
             orientation=orientation + np.pi/2,
             phase=phase,
             gamma=gamma,
+            grey_level=grey_level,
             **kwargs
         )
 
