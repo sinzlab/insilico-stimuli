@@ -96,7 +96,7 @@ class GaborSet(StimuliSet):
     A class to generate Gabor stimuli as sinusoidal gratings modulated by Gaussian envelope.
     """
     def __init__(self, canvas_size, center_range, sizes, spatial_frequencies, contrasts, orientations, phases,
-                 grey_level, pixel_boundaries=None, eccentricities=None, locations=None, relative_sf=True):
+                 grey_levels, pixel_boundaries=None, eccentricities=None, locations=None, relative_sf=False):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height].
@@ -122,7 +122,7 @@ class GaborSet(StimuliSet):
                 [rad] and can range from [0,pi). If phases is handed to the class as an integer, e.g. phases = 4, then
                 the range from [0,2*pi) will be divided in 4 evenly spaced phase offsets, namely 0*2pi/4, 1*2pi/4,
                 2*2pi/4 and 3*2pi/4.
-            grey_level (float): Mean luminance / pixel value.
+            grey_levels (list of float): Mean luminance / pixel value.
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             eccentricities (list or None): The eccentricity determining the ellipticity of the Gabor. Takes values from
@@ -144,7 +144,7 @@ class GaborSet(StimuliSet):
         self.sizes = sizes
         self.spatial_frequencies = spatial_frequencies
         self.contrasts = contrasts
-        self.grey_level = grey_level
+        self.grey_levels = grey_levels
 
         if pixel_boundaries is None:
             self.pixel_boundaries = [-1, 1]
@@ -182,13 +182,14 @@ class GaborSet(StimuliSet):
             (self.orientations, 'orientation'),
             (self.phases, 'phase'),
             (self.gammas, 'gamma'),
-            (self.grey_level, 'grey_level')
+            (self.grey_levels, 'grey_level')
         ]
 
     def params_from_idx(self, idx):
         num_params = self.num_params()
         c = np.unravel_index(idx, num_params)
         params = [p[0][c[i]] for i, p in enumerate(self.params())]
+
         # Caution changing the class methods: it is crucial that the index of params matches the correct parameter
         if self.relative_sf:
             params[2] /= params[1]  # params[2] is spatial_frequency and params[1] is size.
@@ -198,35 +199,15 @@ class GaborSet(StimuliSet):
     def density(xy, gammas, R, size):
         """
         Computes the Gaussian density value for given scalars x and y.
-
         Args:
             xy (numpy.array): 1x2 vector with the data point of interest
             gammas (list of float): eccentricity parameters
             R (numpy.array): rotation matrix
             size (float): corresponds to the size of the Gaussian
-
         Returns (numpy.array): density value for the point [x,y]
         """
         S_inv = np.diag(1 / np.array(gammas))
-        return np.exp(-0.5 * xy.T @ R @ S_inv @ R.T @ xy / (size / 4)**2)
-
-    def p(self, X, Y, gammas, R, size):
-        """
-        This function reshapes the grid X and Y into an array of points, computes the density values on these points
-        and reshapes them back into a 2D matrix.
-
-        Args:
-            X (numpy.array): values of the grid in x-direction
-            Y (numpy.array): values of the grid in y-direction
-            gammas (list of float): eccentricity parameters
-            R (numpy.array): rotation matrix
-            size (float): corresponds to the size of the Gaussian
-
-        Returns (numpy.array): 2D matrix containing the density values for the rotated, elliptical Gaussian
-
-        """
-        shape = X.shape
-        return np.reshape([self.density(np.array([x, y]), gammas, R, size) for x, y in zip(X.ravel(), Y.ravel())],shape)
+        return np.exp(-0.5 * np.sum(xy @ R @ S_inv @ R.T * xy, axis=-1) / (size / 4)**2)
 
     def stimulus(self, location, size, spatial_frequency, contrast, orientation, phase, gamma, grey_level, **kwargs):
         """
@@ -250,7 +231,7 @@ class GaborSet(StimuliSet):
         # rotation matrix R for envelope
         R_env = np.array([[np.cos(-orientation - np.pi/2), -np.sin(-orientation - np.pi/2)],
                       [np.sin(-orientation - np.pi/2),  np.cos(-orientation - np.pi/2)]])
-        envelope = self.p(x, y, gammas=[1, gamma], R=R_env, size=size)
+        envelope = self.density(np.stack((x, y), axis=-1), gammas=[1, gamma], R=R_env, size=size)
 
         # rotation matrix for grating
         R = np.array([[np.cos(orientation), -np.sin(orientation)],
@@ -445,7 +426,7 @@ class GaborSet(StimuliSet):
         def train_evaluate_helper(auto_params):
             return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
 
-        best_params, values, _, _ = optimize(parameters=parameters,
+        best_params, values, _, _ = optimize(parameters=parameters.copy(),
                                              evaluation_function=train_evaluate_helper,
                                              objective_name='activation',
                                              total_trials=total_trials)
@@ -536,8 +517,8 @@ class PlaidsSet(GaborSet):
     A class to generate Plaid stimuli by adding two orthogonal Gabors.
     """
     def __init__(self, canvas_size, center_ranges, sizes, spatial_frequencies, orientations, phases,
-                 contrasts_preferred, contrasts_orthogonal, grey_level, pixel_boundaries=None, eccentricities=None,
-                 locations=None, relative_sf=True):
+                 contrasts_preferred, contrasts_orthogonal, grey_levels, pixel_boundaries=None, eccentricities=None,
+                 locations=None, angles=None, relative_sf=False):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height]
@@ -558,53 +539,31 @@ class PlaidsSet(GaborSet):
             contrasts_orthogonal (list of float): Defines the amplitude of the orthogonal Gabor in %. Takes values from
                 0 to 1. For grey_level=-0.2 and pixel_boundaries=[-1,1], a contrast of 1 (=100%) means the amplitude
                 of the Gabor stimulus is 0.8.
-            grey_level (float): Mean luminance/pixel value.
+            grey_levels (list of float): Mean luminance/pixel value.
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             eccentricities (list or None): The ellipticity of the Gabor (default: 0). Same value for both preferred and
                 orthogonal Gabor. Takes values from [0,1].
             locations (list of list or None): list of lists specifying the location of the Plaid. If 'locations' is not
                 specified, the Plaid centers are generated from 'center_ranges' (default is None).
+            angles (list or int or None): The angle between the two overlapping Gabors in radians, default is
+                orthogonal (pi/2). Can take values from [0, pi).
             relative_sf (bool or None): Scale 'spatial_frequencies' by size (True, by default) or use absolute units
                 (False).
         """
-        self.canvas_size = canvas_size
-        self.cr = center_ranges
+        super().__init__(canvas_size, center_ranges, sizes, spatial_frequencies, contrasts_preferred, orientations,
+                         phases, grey_levels, pixel_boundaries, eccentricities, locations, relative_sf)
 
-        if locations is None:
-            self.locations = np.array([[x, y] for x in range(self.cr[0], self.cr[1])
-                                              for y in range(self.cr[2], self.cr[3])])
-        else:
-            self.locations = locations
-
-        self.sizes = sizes
-        self.spatial_frequencies = spatial_frequencies
-
-        if type(orientations) is not list:
-            self.orientations = np.arange(orientations) * pi / orientations
-        else:
-            self.orientations = orientations
-
-        if type(phases) is not list:
-            self.phases = np.arange(phases) * (2*pi) / phases
-        else:
-            self.phases = phases
-
-        if eccentricities is None:
-            self.gammas = [1]
-        else:
-            self.gammas = [1 - e ** 2 for e in eccentricities]
-
-        self.contrasts_preferred = contrasts_preferred
+        self.contrasts_preferred = self.contrasts
+        del self.contrasts
         self.contrasts_orthogonal = contrasts_orthogonal
-        self.grey_level = grey_level
 
-        if pixel_boundaries is None:
-            self.pixel_boundaries = [-1, 1]
-        else:
-            self.pixel_boundaries = pixel_boundaries
-
-        self.relative_sf = relative_sf
+        if angles is None:
+            self.angles = [pi / 2]
+        elif type(angles) == list:
+            self.angles = angles
+        elif type(angles) == int:
+            self.angles = np.arange(angles) * pi / angles
 
     def params(self):
         return [
@@ -614,13 +573,14 @@ class PlaidsSet(GaborSet):
             (self.orientations, 'orientation'),
             (self.phases, 'phase'),
             (self.gammas, 'gamma'),
-            (self.grey_level, 'grey_level'),
+            (self.grey_levels, 'grey_level'),
             (self.contrasts_preferred, 'contrast_preferred'),
-            (self.contrasts_orthogonal, 'contrast_orthogonal')
+            (self.contrasts_orthogonal, 'contrast_orthogonal'),
+            (self.angles, 'angle')
         ]
 
     def stimulus(self, location, size, spatial_frequency, orientation, phase, gamma, grey_level,
-                 contrast_preferred, contrast_orthogonal, **kwargs):
+                 contrast_preferred, contrast_orthogonal, angle, **kwargs):
         """
         Args:
             location (list of int): The center position of the Plaid.
@@ -652,7 +612,7 @@ class PlaidsSet(GaborSet):
             size=size,
             spatial_frequency=spatial_frequency,
             contrast=contrast_orthogonal,
-            orientation=orientation + np.pi/2,
+            orientation=orientation + angle,
             phase=phase,
             gamma=gamma,
             grey_level=grey_level,
@@ -669,7 +629,7 @@ class DiffOfGaussians(StimuliSet):
     A class to generate Difference of Gaussians (DoG) by subtracting two Gaussian functions of different sizes.
     """
     def __init__(self, canvas_size, center_range, sizes, sizes_scale_surround, contrasts, contrasts_scale_surround,
-                 grey_level, pixel_boundaries=None, locations=None):
+                 grey_levels, pixel_boundaries=None, locations=None):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height].
@@ -680,7 +640,7 @@ class DiffOfGaussians(StimuliSet):
             contrasts (list of float): Contrast of the center Gaussian in %. Takes values from -1 to 1.
             contrasts_scale_surround (list of float): Contrast of the surround Gaussian relative to the center Gaussian.
                 Should be between 0 and 1.
-            grey_level (float): The mean luminance/pixel value.
+            grey_levels (list of float): The mean luminance/pixel value.
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             locations (list of list or None): list of lists specifying the center locations. If 'locations' is not
@@ -698,7 +658,7 @@ class DiffOfGaussians(StimuliSet):
         self.sizes = sizes
         self.sizes_scale_surround = sizes_scale_surround
         self.contrasts = contrasts
-        self.grey_level = grey_level
+        self.grey_levels = grey_levels
         self.contrasts_scale_surround = contrasts_scale_surround
 
         if pixel_boundaries is None:
@@ -712,7 +672,8 @@ class DiffOfGaussians(StimuliSet):
             (self.sizes, 'size'),
             (self.sizes_scale_surround, 'size_scale_surround'),
             (self.contrasts, 'contrast'),
-            (self.contrasts_scale_surround, 'contrast_scale_surround')
+            (self.contrasts_scale_surround, 'contrast_scale_surround'),
+            (self.grey_levels, 'grey_level')
         ]
 
     @staticmethod
@@ -729,7 +690,7 @@ class DiffOfGaussians(StimuliSet):
         r2 = np.sum(np.square(coords - mean), axis=1)
         return np.exp(-r2 / (2 * scale**2))
 
-    def stimulus(self, location, size, size_scale_surround, contrast, contrast_scale_surround, **kwargs):
+    def stimulus(self, location, size, size_scale_surround, contrast, contrast_scale_surround, grey_level, **kwargs):
         """
         Args:
             location (list of float): The center position of the DoG.
@@ -738,6 +699,7 @@ class DiffOfGaussians(StimuliSet):
                 Gaussian is relative to the size of the center Gaussian. Must have values larger than 1.
             contrast (float): Contrast of the center Gaussian in %. Takes values from 0 to 1.
             contrast_scale_surround (float): Contrast of the surround Gaussian relative to the center Gaussian.
+            grey_level (float): mean luminance.
             **kwargs: Arbitrary keyword arguments.
 
         Returns: Pixel intensities for desired Difference of Gaussians stimulus as numpy.ndarray.
@@ -757,11 +719,11 @@ class DiffOfGaussians(StimuliSet):
         # add contrast
         min_val, max_val = center_surround.min(), center_surround.max()
         amplitude_current = max(np.abs(min_val), np.abs(max_val))
-        amplitude_required = contrast * min(np.abs(self.pixel_boundaries[0] - self.grey_level),
-                                            np.abs(self.pixel_boundaries[1] - self.grey_level))
+        amplitude_required = contrast * min(np.abs(self.pixel_boundaries[0] - grey_level),
+                                            np.abs(self.pixel_boundaries[1] - grey_level))
         contrast_scaling = amplitude_required / amplitude_current
 
-        diff_of_gaussians = contrast_scaling * center_surround + self.grey_level
+        diff_of_gaussians = contrast_scaling * center_surround + grey_level
 
         return diff_of_gaussians
 
@@ -772,7 +734,7 @@ class CenterSurround(StimuliSet):
     """
     def __init__(self, canvas_size, center_range, sizes_total, sizes_center, sizes_surround, contrasts_center,
                  contrasts_surround, orientations_center, orientations_surround, spatial_frequencies_center,
-                 phases_center, grey_level, spatial_frequencies_surround=None, phases_surround=None,
+                 phases_center, grey_levels, spatial_frequencies_surround=None, phases_surround=None,
                  pixel_boundaries=None, locations=None):
         """
         Args:
@@ -800,7 +762,7 @@ class CenterSurround(StimuliSet):
                 pi.
             phases_surround (list or int or None): The phase offset of the surround sinusoidal gratings. Takes values
                 from -pi to pi. If not specified, use same value as in 'phases_center'.
-            grey_level (float): The mean luminance/pixel value.
+            grey_levels (list of float): The mean luminance/pixel value.
             pixel_boundaries (list of float or None): Range of values the monitor can display. Handed to the class in
                 the format [lower pixel value, upper pixel value], default is [-1,1].
             locations (list of list or None): list of lists specifying the center locations (default: None). If
@@ -820,7 +782,7 @@ class CenterSurround(StimuliSet):
         self.sizes_surround = sizes_surround
         self.contrasts_center = contrasts_center
         self.contrasts_surround = contrasts_surround
-        self.grey_level = grey_level
+        self.grey_levels = grey_levels
 
         if pixel_boundaries is None:
             self.pixel_boundaries = [-1, 1]
@@ -869,27 +831,33 @@ class CenterSurround(StimuliSet):
             (self.spatial_frequencies_center, 'spatial_frequency_center'),
             (self.spatial_frequencies_surround, 'spatial_frequency_surround'),
             (self.phases_center, 'phase_center'),
-            (self.phases_surround, 'phase_surround')
+            (self.phases_surround, 'phase_surround'),
+            (self.grey_levels, 'grey_level')
         ]
 
     def params_from_idx(self, idx):
+        # Caution changing the class methods: it is crucial that the index of params matches the correct parameter
+
         num_params = self.num_params()
         c = np.unravel_index(idx, num_params)
         params = [p[0][c[i]] for i, p in enumerate(self.params())]
-        # Caution changing the class methods: it is crucial that the index of params matches the correct parameter
-        if self.phases_surround == [-6666]:  # if phases_surround was not specified, use the value of phases_center
+
+        # if phases_surround was not specified, use the value of phases_center
+        if self.phases_surround == [-6666]:
             params[11] = params[10]
-        if self.spatial_frequencies_surround == [-6666]:  # if spatial_frequencies_surround was not specified
+
+        # if spatial_frequencies_surround was not specified
+        if self.spatial_frequencies_surround == [-6666]:
             params[9] = params[8]
         return params
 
     def stimulus(self, location, size_total, size_center, size_surround, contrast_center, contrast_surround,
                  orientation_center, orientation_surround, spatial_frequency_center, spatial_frequency_surround,
-                 phase_center, phase_surround):
+                 phase_center, phase_surround, grey_level):
         """
         Args:
             location (list of float): The center position of the Center-Surround stimulus.
-            size_total (float): The overall size of the Center-Surround stimulus.
+            size_total (float): The overall size of the Center-Surround stimulus as the radius in [number of pixels].
             size_center (float): The size of the center as a fraction of the overall size.
             size_surround (float): The size of the surround as a fraction of the overall size.
             contrast_center (float): The contrast of the center grating in %. Takes values from 0 to 1.
@@ -900,6 +868,7 @@ class CenterSurround(StimuliSet):
             spatial_frequency_surround (float): The inverse of the wavelength of the surround gratings.
             phase_center (float): The cosine phase-offset of the center grating.
             phase_surround (float): The cosine phase-offset of the surround grating.
+            grey_level (float): The mean luminance.
 
         Returns: Pixel intensities of the desired Center-Surround stimulus as numpy.ndarray.
         """
@@ -930,10 +899,10 @@ class CenterSurround(StimuliSet):
         grating_surround = np.cos(spatial_frequency_surround * x_surround * (2*pi) + phase_surround)
 
         # add contrast
-        amplitude_center = contrast_center * min(abs(self.pixel_boundaries[0] - self.grey_level),
-                                                 abs(self.pixel_boundaries[1] - self.grey_level))
-        amplitude_surround = contrast_surround * min(abs(self.pixel_boundaries[0] - self.grey_level),
-                                                     abs(self.pixel_boundaries[1] - self.grey_level))
+        amplitude_center = contrast_center * min(abs(self.pixel_boundaries[0] - grey_level),
+                                                 abs(self.pixel_boundaries[1] - grey_level))
+        amplitude_surround = contrast_surround * min(abs(self.pixel_boundaries[0] - grey_level),
+                                                     abs(self.pixel_boundaries[1] - grey_level))
 
         grating_center_contrast = amplitude_center * grating_center
         grating_surround_contrast = amplitude_surround * grating_surround
