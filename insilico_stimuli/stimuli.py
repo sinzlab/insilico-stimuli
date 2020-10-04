@@ -1,12 +1,14 @@
 # when adding a stimulus class, always add at least the methods "params" and "stimulus".
 
 import numpy as np
-import torch
-import matplotlib.pyplot as plt
 from numpy import pi
 from numpy import random as rn
-from ax.service.managed_loop import optimize
+
 from functools import partial
+from ax.service.managed_loop import optimize
+
+import torch
+import matplotlib.pyplot as plt
 
 
 class StimuliSet:
@@ -95,22 +97,22 @@ class GaborSet(StimuliSet):
     """
     A class to generate Gabor stimuli as sinusoidal gratings modulated by Gaussian envelope.
     """
-    def __init__(self, canvas_size, center_range, sizes, spatial_frequencies, contrasts, orientations, phases,
-                 grey_levels, pixel_boundaries=None, eccentricities=None, locations=None, relative_sf=False):
+    def __init__(self, canvas_size, locations, sizes, spatial_frequencies, contrasts, orientations, phases, grey_levels,
+                 center_range=None, pixel_boundaries=None, eccentricities=None, relative_sf=False):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height].
-            center_range (list of int): The start and end locations for the center positions of the Gabor [x_start,
-                x_end, y_start, y_end].
+            locations (list of list): list of lists specifying the position of the Gabor. If 'center_range' is
+                specified additionally, the Gabors' locations are generated from 'center_range' instead.
             sizes (list of float): Controls the size of the Gabor envelope in direction of the longer axis of the
                 ellipse. It is measured in pixels (pixel radius). The size corresponds to 4*SD of the Gaussian envelope
                 (+/- 2 SD of envelope).
             spatial_frequencies (list of float): The inverse of the wavelength of the cosine factor entered in
                 [cycles / pixel]. By setting the parameter 'relative_sf'=True, the spatial frequency depends on size,
                 namely [cycles / envelope]. In this case, the value for the spatial frequency reflects how many periods
-                fit into the length of 'size' from the center.
-                In order to prevent the occurrence of undesired effects at the image borders, the wavelength value
-                should be smaller than one fifth of the input image size.
+                fit into the length of 'size' from the center. In order to prevent the occurrence of undesired effects
+                at the image borders, the wavelength value should be smaller than one fifth of the input image size.
+                Also, the Nyquist-frequency should not be exceeded.
             contrasts (list of float): Defines the amplitude of the stimulus in %. Takes values from 0 to 1. For a
                 grey_level=-0.2 and pixel_boundaries=[-1,1], a contrast of 1 (=100%) means the amplitude of the Gabor
                 stimulus is 0.8.
@@ -123,49 +125,31 @@ class GaborSet(StimuliSet):
                 the range from [0,2*pi) will be divided in 4 evenly spaced phase offsets, namely 0*2pi/4, 1*2pi/4,
                 2*2pi/4 and 3*2pi/4.
             grey_levels (list of float): Mean luminance / pixel value.
+            center_range (list of int or None): The start and end locations for the center positions of the Gabor
+                [x_start, x_end, y_start, y_end].
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
             eccentricities (list or None): The eccentricity determining the ellipticity of the Gabor. Takes values from
-                [0,1].
-            locations (list of list or None): list of lists specifying the position of the Gabor. If 'locations' is not
-                specified, the Gabors are centered around the grid specified in 'center_range'.
-            relative_sf (bool or None): Scale 'spatial_frequencies' by size (True, default) or use absolute units
-                (False).
+                [0,1]. Default is 0 (circular).
+            relative_sf (bool or None): Scale 'spatial_frequencies' by size (True) or use absolute units
+                (False, default).
         """
         self.canvas_size = canvas_size
-        self.cr = center_range
 
-        if locations is None:
-            self.locations = np.array([[x, y] for x in range(self.cr[0], self.cr[1])
-                                              for y in range(self.cr[2], self.cr[3])])
-        else:
+        if center_range is None:  # feature: 'center_range' overwrites 'location'
             self.locations = locations
+        else:
+            self.locations = np.array([[x, y] for x in range(center_range[0], center_range[1])
+                                       for y in range(center_range[2], center_range[3])])
 
         self.sizes = sizes
         self.spatial_frequencies = spatial_frequencies
         self.contrasts = contrasts
+        self.orientations = np.arange(orientations) * pi / orientations if type(orientations) == int else orientations
+        self.phases = np.arange(phases) * (2 * pi) / phases if (type(phases) == int) else phases
         self.grey_levels = grey_levels
-
-        if pixel_boundaries is None:
-            self.pixel_boundaries = [-1, 1]
-        else:
-            self.pixel_boundaries = pixel_boundaries
-
-        if type(orientations) is not list:
-            self.orientations = np.arange(orientations) * pi / orientations
-        else:
-            self.orientations = orientations
-
-        if type(phases) is not list:
-            self.phases = np.arange(phases) * (2*pi) / phases
-        else:
-            self.phases = phases
-
-        if eccentricities is None:
-            self.gammas = [1]
-        else:
-            self.gammas = [1 - e ** 2 for e in eccentricities]
-
+        self.pixel_boundaries = [-1, 1] if (pixel_boundaries is None) else pixel_boundaries
+        self.gammas = [1] if (eccentricities is None) else [1 - e ** 2 for e in eccentricities]
         self.relative_sf = relative_sf
 
         # get the parameters in an ax-friendly format
@@ -516,14 +500,14 @@ class PlaidsSet(GaborSet):
     """
     A class to generate Plaid stimuli by adding two orthogonal Gabors.
     """
-    def __init__(self, canvas_size, center_ranges, sizes, spatial_frequencies, orientations, phases,
-                 contrasts_preferred, contrasts_orthogonal, grey_levels, pixel_boundaries=None, eccentricities=None,
-                 locations=None, angles=None, relative_sf=False):
+    def __init__(self, canvas_size, locations, sizes, spatial_frequencies, orientations, phases,
+                 contrasts_preferred, contrasts_orthogonal, grey_levels, center_range=None, pixel_boundaries=None,
+                 eccentricities=None, angles=None, relative_sf=False):
         """
         Args:
             canvas_size (list of int): The canvas size [width, height]
-            center_ranges (list of int): The ranges for the center locations of the Plaid [x_start, x_end, y_start,
-                y_end]
+            locations (list of list): list of lists specifying the locations of the Plaids. If 'center_range' is
+                specified additionally, the Plaids' locations are generated from 'center_range'.
             sizes (list of float): The overall size of the Plaid. Corresponds to 4*SD (+/- 2 SD) of the Gaussian
                 envelope.
             spatial_frequencies (list of float): The inverse of the wavelength of the cosine factor entered in
@@ -540,29 +524,29 @@ class PlaidsSet(GaborSet):
                 0 to 1. For grey_level=-0.2 and pixel_boundaries=[-1,1], a contrast of 1 (=100%) means the amplitude
                 of the Gabor stimulus is 0.8.
             grey_levels (list of float): Mean luminance/pixel value.
+            center_range (list of int or None): The ranges for the center locations of the Plaid [x_start, x_end,
+                y_start, y_end]
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
-            eccentricities (list or None): The ellipticity of the Gabor (default: 0). Same value for both preferred and
-                orthogonal Gabor. Takes values from [0,1].
-            locations (list of list or None): list of lists specifying the location of the Plaid. If 'locations' is not
-                specified, the Plaid centers are generated from 'center_ranges' (default is None).
-            angles (list or int or None): The angle between the two overlapping Gabors in radians, default is
-                orthogonal (pi/2). Can take values from [0, pi).
-            relative_sf (bool or None): Scale 'spatial_frequencies' by size (True, by default) or use absolute units
-                (False).
+            eccentricities (list or None): The ellipticity of the Gabor, default is 0 (circular). Same value for both
+                preferred and overlapping Gabor. Takes values from [0,1].
+            angles (list or int or None): The angle between the two overlapping Gabors in radians, default is pi/2
+                (orthogonal). Can take values from [0, pi).
+            relative_sf (bool or None): Scale 'spatial_frequencies' by size (True) or use absolute units
+                (False, by default).
         """
-        super().__init__(canvas_size, center_ranges, sizes, spatial_frequencies, contrasts_preferred, orientations,
-                         phases, grey_levels, pixel_boundaries, eccentricities, locations, relative_sf)
+        super().__init__(canvas_size, locations, sizes, spatial_frequencies, contrasts_preferred, orientations,
+                         phases, grey_levels, center_range, pixel_boundaries, eccentricities, relative_sf)
 
         self.contrasts_preferred = self.contrasts
         del self.contrasts
         self.contrasts_orthogonal = contrasts_orthogonal
 
         if angles is None:
-            self.angles = [pi / 2]
+            self.angles = [pi / 2]  # orthogonal, 90°
         elif type(angles) == list:
             self.angles = angles
-        elif type(angles) == int:
+        elif type(angles) == int:  # linearly spaced angle values from 0° to 180°
             self.angles = np.arange(angles) * pi / angles
 
     def params(self):
