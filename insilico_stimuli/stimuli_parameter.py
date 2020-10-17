@@ -121,8 +121,10 @@ class BarsSet(StimuliSet):
             pixel_boundaries (list or None): Range of values the monitor can display [lower value, upper value]. Default
                 is [-1,1].
         """
+        self.arg_dict = locals().copy()
+
         # Treat all the 'non-stimulus-oriented' arguments
-        # canvas_size
+        # canvas_siz
         if type(canvas_size) is list:
             self.canvas_size = canvas_size
         else:
@@ -165,130 +167,8 @@ class BarsSet(StimuliSet):
             else:
                 raise TypeError("locations.range must be of type list.")
 
-        # lengths
-        if isinstance(lengths, list):
-            self.lengths = lengths
-        elif isinstance(lengths, FiniteSelection):
-            sample = lengths.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.lengths = sample
-            else:
-                raise TypeError("lengths.sample() must be of type list.")
-        elif isinstance(lengths, FiniteParameter):
-            if type(lengths.values) is list:
-                self.lengths = lengths.values
-            else:
-                raise TypeError('lengths.values must be of type list.')
-        elif isinstance(lengths, UniformRange):
-            sample = lengths.sample()
-            if isinstance(sample, list):
-                self.lengths = sample
-            else:
-                raise TypeError("lengths.sample() must be of type list.")
-            if isinstance(lengths.range, list):
-                self.lengths_range = lengths.range
-            else:
-                raise TypeError("lengths.range must be of type list.")
-
-        # widths
-        if isinstance(widths, list):
-            self.widths = widths
-        elif isinstance(widths, FiniteSelection):
-            sample = widths.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.widths = sample
-            else:
-                raise TypeError("widths.sample() must be of type list.")
-        elif isinstance(widths, FiniteParameter):
-            if type(widths.values) is list:
-                self.widths = widths.values
-            else:
-                raise TypeError('widths.values must be of type list.')
-        elif isinstance(widths, UniformRange):
-            sample = widths.sample()
-            if isinstance(sample, list):
-                self.widths = sample
-            else:
-                raise TypeError("widths.sample() must be of type list.")
-            if isinstance(widths.range, list):
-                self.widths_range = widths.range
-            else:
-                raise TypeError("widths.range must be of type list.")
-
-        # contrasts
-        if isinstance(contrasts, list):
-            self.contrasts = contrasts
-        elif isinstance(contrasts, FiniteSelection):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-        elif isinstance(contrasts, FiniteParameter):
-            if type(contrasts.values) is list:
-                self.contrasts = contrasts.values
-            else:
-                raise TypeError('contrasts.values must be of type list, int or float.')
-        elif isinstance(contrasts, UniformRange):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-            if isinstance(contrasts.range, list):
-                self.contrasts_range = contrasts.range
-            else:
-                raise TypeError("contrasts.range must be of type list.")
-
-        # orientations
-        if isinstance(orientations, list):
-            self.orientations = orientations
-        elif isinstance(orientations, FiniteSelection):
-            sample = orientations.sample()
-            if isinstance(sample, list):
-                self.orientations = sample
-            else:
-                raise TypeError("orientations.sample() must be of type list.")
-        elif isinstance(orientations, FiniteParameter):
-            if type(orientations.values) is list:
-                self.orientations = orientations.values
-            else:
-                raise TypeError('orientations.values must be either of type list.')
-        elif isinstance(orientations, UniformRange):
-            sample = orientations.sample()
-            if isinstance(sample, list):
-                self.orientations = sample
-            else:
-                raise TypeError("orientations.sample() must be of type list.")
-            if isinstance(orientations.range, list):
-                self.orientations_range = orientations.range
-            else:
-                raise TypeError("orientations.range must be of type list.")
-
-        # grey_levels
-        if isinstance(grey_levels, list):
-            self.grey_levels = grey_levels
-        elif isinstance(grey_levels, FiniteSelection):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-        elif isinstance(grey_levels, FiniteParameter):
-            if type(grey_levels.values) is list:
-                self.grey_levels = grey_levels.values
-            else:
-                raise TypeError('grey_levels.values must be either of type list, int or float.')
-        elif isinstance(grey_levels, UniformRange):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-            if isinstance(grey_levels.range, list):
-                self.grey_levels_range = grey_levels.range
-            else:
-                raise TypeError("grey_levels.range must be of type list.")
+        # read out the other inputs and store them as attributes
+        self._parameter_converter()
 
     def params(self):
         return [
@@ -299,6 +179,37 @@ class BarsSet(StimuliSet):
             (self.orientations, 'orientation'),
             (self.grey_levels, 'grey_level')
         ]
+
+    def _parameter_converter(self):
+        """ Reads out the type of all the ordinary input arguments and converts them to attributes. """
+        for arg_key in self.arg_dict:
+            arg_value = self.arg_dict[arg_key]
+            if arg_key in ["canvas_size", "pixel_boundaries", "locations", "self"]:  # exceptions
+                pass
+            else:  # lengths, widths, contrasts, orientations, grey_levels
+                if isinstance(arg_value, list):
+                    setattr(self, arg_key, arg_value)
+                elif isinstance(arg_value, FiniteSelection):
+                    sample = arg_value.sample()  # random sample of n values specified in sizes
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                elif isinstance(arg_value, FiniteParameter):
+                    if isinstance(arg_value.values, list):
+                        setattr(self, arg_key, arg_value.values)
+                    else:
+                        raise TypeError("{}.values must be of type list.".format(arg_key))
+                elif isinstance(arg_value, UniformRange):
+                    sample = arg_value.sample()
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                    if isinstance(arg_value.range, list):
+                        setattr(self, arg_key + "_range", arg_value.range)
+                    else:
+                        raise TypeError("{}.range must be of type list.".format(arg_key))
 
     def stimulus(self, location, length, width, contrast, orientation, grey_level):
         """
@@ -313,35 +224,21 @@ class BarsSet(StimuliSet):
         Returns:
             numpy.ndarray: bar stimulus as array with pixel intensities.
         """
-        bar_no_contrast = np.zeros((self.canvas_size[0], self.canvas_size[1]))
-
         # center the location
-        loc_w, loc_h = (self.canvas_size[0] - location[0], self.canvas_size[1] - location[1])
+        x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
+                           np.arange(self.canvas_size[1]) - location[1])
+        coords = np.stack([x.flatten(), y.flatten()])
 
-        # mark the edges of the rectangle
-        left_lower = [round(loc_w - width/2), round(loc_h - length/2)]
-        left_upper = [round(loc_w - width/2), round(loc_h + length/2)]
-        right_lower = [round(loc_w + width/2), round(loc_h - length/2)]
-        right_upper = [round(loc_w + width/2), round(loc_h + length/2)]
+        # scaling matrix A
+        A = np.array([[width/2, 0], [0, length/2]])
+        coordsA = A.dot(coords)
 
-        # get the points which belong to the rectangle
-        rect = np.array([[x_rect, y_rect] for x_rect in list(range(left_lower[0], right_lower[0]+1))
-                                          for y_rect in list(range(left_lower[1], left_upper[1]+1))])
-
-        #edges = np.stack((np.array(left_lower), np.array(left_upper), np.array(right_lower), np.array(right_upper)))
-        #R.dot(edges.transpose())
-
-        # rotation
+        # rotation matrix R
         R = np.array([[np.cos(orientation), -np.sin(orientation)],
                       [np.sin(orientation), np.cos(orientation)]])
-        rect_rot = np.round(R.dot(rect.transpose()))
+        coordsAR = R.dot(coordsA).reshape((2,) + x.shape)
 
-        # coordinates
-        #x, y = np.meshgrid(loc_w, loc_h)
-        #coords = np.stack([x.flatten(), y.flatten()])
-        #x_rot, y_rot = R.dot(coords).reshape((2,) + x.shape)
-
-        bar_no_contrast[rect_rot] = 1
+        bar_no_contrast = coordsAR
 
         # add contrast
         amplitude = contrast * min(abs(self.pixel_boundaries[0] - grey_level),
@@ -394,7 +291,8 @@ class GaborSet(StimuliSet):
             relative_sf (bool or None): Scale 'spatial_frequencies' by size (True) or use absolute units
                 (False, default).
         """
-        self.arg_dict = locals().copy()  # input dictionary (used in find_optimal_gabor_bruteforce method)
+        # input dictionary (used for: 'find_optimal_stimulus_bruteforce' and '_parameter_converter')
+        self.arg_dict = locals().copy()
         rn.seed(None)  # truely pseudo-random samples
 
         # Treat all the 'non-stimulus-oriented' arguments
@@ -449,156 +347,6 @@ class GaborSet(StimuliSet):
             else:
                 raise TypeError("locations.range must be of type list.")
 
-        # sizes
-        if isinstance(sizes, list):
-            self.sizes = sizes
-        elif isinstance(sizes, FiniteSelection):
-            sample = sizes.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes = sample
-            else:
-                raise TypeError("sizes.sample() must be of type list.")
-        elif isinstance(sizes, FiniteParameter):
-            if type(sizes.values) is list:
-                self.sizes = sizes.values
-            else:
-                raise TypeError('size.values must be of type list.')
-        elif isinstance(sizes, UniformRange):
-            sample = sizes.sample()
-            if isinstance(sample, list):
-                self.sizes = sample
-            else:
-                raise TypeError("sizes.sample() must be of type list.")
-            if isinstance(sizes.range, list):
-                self.sizes_range = sizes.range
-            else:
-                raise TypeError("sizes.range must be of type list.")
-
-        # spatial_frequencies
-        if isinstance(spatial_frequencies, list):
-            self.spatial_frequencies = spatial_frequencies
-        elif isinstance(spatial_frequencies, FiniteSelection):
-            sample = spatial_frequencies.sample()
-            if isinstance(sample, list):
-                self.spatial_frequencies = sample
-            else:
-                raise TypeError("spatial_frequencies.sample() must be of type list.")
-        elif isinstance(spatial_frequencies, FiniteParameter):
-            if type(spatial_frequencies.values) is list:
-                self.spatial_frequencies = spatial_frequencies.values
-            else:
-                raise TypeError('spatial_frequencies.values must be of type list, int or float.')
-        elif isinstance(spatial_frequencies, UniformRange):
-            sample = spatial_frequencies.sample()
-            if isinstance(sample, list):
-                self.spatial_frequencies = sample
-            else:
-                raise TypeError("spatial_frequencies.sample() must be of type list.")
-            if isinstance(spatial_frequencies.range, list):
-                self.spatial_frequencies_range = spatial_frequencies.range
-            else:
-                raise TypeError("spatial_frequencies.range must be of type list.")
-
-        # contrasts
-        if isinstance(contrasts, list):
-            self.contrasts = contrasts
-        elif isinstance(contrasts, FiniteSelection):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-        elif isinstance(contrasts, FiniteParameter):
-            if type(contrasts.values) is list:
-                self.contrasts = contrasts.values
-            else:
-                raise TypeError('contrasts.values must be of type list, int or float.')
-        elif isinstance(contrasts, UniformRange):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-            if isinstance(contrasts.range, list):
-                self.contrasts_range = contrasts.range
-            else:
-                raise TypeError("contrasts.range must be of type list.")
-
-        # orientations
-        if isinstance(orientations, list):
-            self.orientations = orientations
-        elif isinstance(orientations, FiniteSelection):
-            sample = orientations.sample()
-            if isinstance(sample, list):
-                self.orientations = sample
-            else:
-                raise TypeError("orientations.sample() must be of type list.")
-        elif isinstance(orientations, FiniteParameter):
-            if type(orientations.values) is list:
-                self.orientations = orientations.values
-            else:
-                raise TypeError('orientations.values must be of type list.')
-        elif isinstance(orientations, UniformRange):
-            sample = orientations.sample()
-            if isinstance(sample, list):
-                self.orientations = sample
-            else:
-                raise TypeError("orientations.sample() must be of type list.")
-            if isinstance(orientations.range, list):
-                self.orientations_range = orientations.range
-            else:
-                raise TypeError("orientations.range must be of type list.")
-
-        # phases
-        if isinstance(phases, list):
-            self.phases = phases
-        elif isinstance(phases, FiniteSelection):
-            sample = phases.sample()
-            if isinstance(sample, list):
-                self.phases = sample
-            else:
-                raise TypeError("phases.sample() must be of type list.")
-        elif isinstance(phases, FiniteParameter):
-            if type(phases.values) is list:
-                self.phases = phases.values
-            else:
-                raise TypeError('phases.values must be of type list.')
-        elif isinstance(phases, UniformRange):
-            sample = phases.sample()
-            if isinstance(sample, list):
-                self.phases = sample
-            else:
-                raise TypeError("phases.sample() must be of type list.")
-            if isinstance(phases.range, list):
-                self.phases_range = phases.range
-            else:
-                raise TypeError("phases.range must be of type list.")
-
-        # grey_levels
-        if isinstance(grey_levels, list):
-            self.grey_levels = grey_levels
-        elif isinstance(grey_levels, FiniteSelection):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-        elif isinstance(grey_levels, FiniteParameter):
-            if type(grey_levels.values) is list:
-                self.grey_levels = grey_levels.values
-            else:
-                raise TypeError('grey_levels.values must be either of type list, int or float.')
-        elif isinstance(grey_levels, UniformRange):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-            if isinstance(grey_levels.range, list):
-                self.grey_levels_range = grey_levels.range
-            else:
-                raise TypeError("grey_levels.range must be of type list.")
-
         # eccentricities
         if eccentricities is None:
             self.gammas = [1]  # default
@@ -626,6 +374,9 @@ class GaborSet(StimuliSet):
                     self.gammas_range = [1 - e ** 2 for e in eccentricities.range[::-1]]
                 else:
                     raise TypeError("eccentricities.range must be of type list.")
+
+        # read out the other inputs and store them as attributes
+        self._parameter_converter()
 
         # For this class search methods, we want to get the parameters in an ax-friendly format
         if not any([isinstance(arg, list) for arg in self.arg_dict]):
@@ -660,6 +411,37 @@ class GaborSet(StimuliSet):
         if self.relative_sf:
             params[2] /= params[1]  # params[2] is spatial_frequency and params[1] is size.
         return params
+
+    def _parameter_converter(self):
+        """ Reads out the type of all the ordinary input arguments and converts them to attributes. """
+        for arg_key in self.arg_dict:
+            arg_value = self.arg_dict[arg_key]
+            if arg_key in ["canvas_size", "pixel_boundaries", "locations", "relative_sf", "eccentricities", "self"]:
+                pass  # exceptions
+            else:  # sizes, spatial_frequencies, contrasts, orientations, phases, grey_levels
+                if isinstance(arg_value, list):
+                    setattr(self, arg_key, arg_value)
+                elif isinstance(arg_value, FiniteSelection):
+                    sample = arg_value.sample()  # random sample of n values specified in sizes
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                elif isinstance(arg_value, FiniteParameter):
+                    if isinstance(arg_value.values, list):
+                        setattr(self, arg_key, arg_value.values)
+                    else:
+                        raise TypeError("{}.values must be of type list.".format(arg_key))
+                elif isinstance(arg_value, UniformRange):
+                    sample = arg_value.sample()
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                    if isinstance(arg_value.range, list):
+                        setattr(self, arg_key + "_range", arg_value.range)
+                    else:
+                        raise TypeError("{}.range must be of type list.".format(arg_key))
 
     @staticmethod
     def density(xy, gammas, R, size):
@@ -1226,140 +1008,8 @@ class DiffOfGaussians(StimuliSet):
             else:
                 raise TypeError("locations.range must be of type list.")
 
-        # sizes
-        if isinstance(sizes, list):
-            self.sizes = sizes
-        elif isinstance(sizes, FiniteSelection):
-            sample = sizes.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes = sample
-            else:
-                raise TypeError("sizes.sample() must be of type list.")
-        elif isinstance(sizes, FiniteParameter):
-            if type(sizes.values) is list:
-                self.sizes = sizes.values
-            elif isinstance(sizes.values, (int or float)):
-                self.sizes = [sizes.values]
-            else:
-                raise TypeError('size.values must be of type list, int or float.')
-        elif isinstance(sizes, UniformRange):
-            sample = sizes.sample()
-            if isinstance(sample, list):
-                self.sizes = sample
-            else:
-                raise TypeError("sizes.sample() must be of type list.")
-            if isinstance(sizes.range, list):
-                self.sizes_range = sizes.range
-            else:
-                raise TypeError("sizes.range must be of type list.")
-
-        # sizes_scale_surround
-        if isinstance(sizes_scale_surround, list):
-            self.sizes_scale_surround = sizes_scale_surround
-        elif isinstance(sizes_scale_surround, FiniteSelection):
-            sample = sizes_scale_surround.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes_scale_surround = sample
-            else:
-                raise TypeError("sizes_scale_surround.sample() must be of type list.")
-        elif isinstance(sizes_scale_surround, FiniteParameter):
-            if type(sizes_scale_surround.values) is list:
-                self.sizes_scale_surround = sizes_scale_surround.values
-            elif isinstance(sizes_scale_surround.values, (int or float)):
-                self.sizes_scale_surround = [sizes.sizes_scale_surround]
-            else:
-                raise TypeError('sizes_scale_surround.values must be of type list, int or float.')
-        elif isinstance(sizes_scale_surround, UniformRange):
-            sample = sizes_scale_surround.sample()
-            if isinstance(sample, list):
-                self.sizes_scale_surround = sample
-            else:
-                raise TypeError("sizes_scale_surround.sample() must be of type list.")
-            if isinstance(sizes_scale_surround.range, list):
-                self.sizes_scale_surround_range = sizes_scale_surround.range
-            else:
-                raise TypeError("sizes_scale_surround.range must be of type list.")
-
-        # contrasts
-        if isinstance(contrasts, list):
-            self.contrasts = contrasts
-        elif isinstance(contrasts, FiniteSelection):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-        elif isinstance(contrasts, FiniteParameter):
-            if type(contrasts.values) is list:
-                self.contrasts = contrasts.values
-            elif isinstance(contrasts.values, (int or float)):
-                self.contrasts = [contrasts.values]
-            else:
-                raise TypeError('contrasts.values must be of type list, int or float.')
-        elif isinstance(contrasts, UniformRange):
-            sample = contrasts.sample()
-            if isinstance(sample, list):
-                self.contrasts = sample
-            else:
-                raise TypeError("contrasts.sample() must be of type list.")
-            if isinstance(contrasts.range, list):
-                self.contrasts_range = contrasts.range
-            else:
-                raise TypeError("contrasts.range must be of type list.")
-
-        # contrasts_scale_surround
-        if isinstance(contrasts_scale_surround, list):
-            self.contrasts_scale_surround = contrasts_scale_surround
-        elif isinstance(contrasts_scale_surround, FiniteSelection):
-            sample = contrasts_scale_surround.sample()
-            if isinstance(sample, list):
-                self.contrasts_scale_surround = sample
-            else:
-                raise TypeError("contrasts_scale_surround.sample() must be of type list.")
-        elif isinstance(contrasts_scale_surround, FiniteParameter):
-            if type(contrasts_scale_surround.values) is list:
-                self.contrasts_scale_surround = contrasts_scale_surround.values
-            elif isinstance(contrasts_scale_surround.values, (int or float)):
-                self.contrasts_scale_surround = [contrasts_scale_surround.values]
-            else:
-                raise TypeError('contrasts_scale_surround.values must be of type list, int or float.')
-        elif isinstance(contrasts_scale_surround, UniformRange):
-            sample = contrasts_scale_surround.sample()
-            if isinstance(sample, list):
-                self.contrasts_scale_surround = sample
-            else:
-                raise TypeError("contrasts_scale_surround.sample() must be of type list.")
-            if isinstance(contrasts_scale_surround.range, list):
-                self.contrasts_scale_surround_range = contrasts_scale_surround.range
-            else:
-                raise TypeError("contrasts_scale_surround.range must be of type list.")
-
-        # grey_levels
-        if isinstance(grey_levels, list):
-            self.grey_levels = grey_levels
-        elif isinstance(grey_levels, FiniteSelection):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-        elif isinstance(grey_levels, FiniteParameter):
-            if type(grey_levels.values) is list:
-                self.grey_levels = grey_levels.values
-            elif isinstance(grey_levels.values, (int or float)):
-                self.grey_levels = [grey_levels.values]
-            else:
-                raise TypeError('grey_levels.values must be of type list, int or float.')
-        elif isinstance(grey_levels, UniformRange):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-            if isinstance(grey_levels.range, list):
-                self.grey_levels_range = grey_levels.range
-            else:
-                raise TypeError("grey_levels.range must be of type list.")
+        # read out the other input arguments and store them in class attributes
+        self._parameter_converter()
 
         # For this class search methods, we want to get the parameters in an ax-friendly format
         if not any([isinstance(arg, list) for arg in self.arg_dict]):
@@ -1379,6 +1029,37 @@ class DiffOfGaussians(StimuliSet):
             (self.contrasts_scale_surround, 'contrast_scale_surround'),
             (self.grey_levels, 'grey_level')
         ]
+
+    def _parameter_converter(self):
+        """ Reads out the type of all the ordinary input arguments and converts them to attributes. """
+        for arg_key in self.arg_dict:
+            arg_value = self.arg_dict[arg_key]
+            if arg_key in ["canvas_size", "pixel_boundaries", "locations", "self"]:
+                pass  # exceptions
+            else:  # sizes, sizes_scale_surround, contrasts, contrast_scale_surround, grey_levels
+                if isinstance(arg_value, list):
+                    setattr(self, arg_key, arg_value)
+                elif isinstance(arg_value, FiniteSelection):
+                    sample = arg_value.sample()  # random sample of n values specified in sizes
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                elif isinstance(arg_value, FiniteParameter):
+                    if isinstance(arg_value.values, list):
+                        setattr(self, arg_key, arg_value.values)
+                    else:
+                        raise TypeError("{}.values must be of type list.".format(arg_key))
+                elif isinstance(arg_value, UniformRange):
+                    sample = arg_value.sample()
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                    if isinstance(arg_value.range, list):
+                        setattr(self, arg_key + "_range", arg_value.range)
+                    else:
+                        raise TypeError("{}.range must be of type list.".format(arg_key))
 
     @staticmethod
     def gaussian_density(coords, mean, scale):
@@ -1751,6 +1432,8 @@ class CenterSurround(StimuliSet):
             pixel_boundaries (list of float or None): Range of values the monitor can display. Handed to the class in
                 the format [lower pixel value, upper pixel value], default is [-1,1].
         """
+        self.arg_dict = locals().copy()
+
         # Treat all the 'non-stimulus-oriented' arguments
         # canvas_size
         if type(canvas_size) is list:
@@ -1791,217 +1474,6 @@ class CenterSurround(StimuliSet):
             else:
                 raise TypeError("locations.sample() must be of type list.")
 
-        # sizes_total
-        if isinstance(sizes_total, list):
-            self.sizes_total = sizes_total
-        elif isinstance(sizes_total, FiniteSelection):
-            sample = sizes_total.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes_total = sample
-            else:
-                raise TypeError("sizes_total.sample() must be of type list.")
-        elif isinstance(sizes_total, FiniteParameter):
-            if type(sizes_total.values) is list:
-                self.sizes_total = sizes_total.values
-            elif isinstance(sizes_total.values, (int or float)):
-                self.sizes_total = [sizes_total.values]
-            else:
-                raise TypeError('sizes_total.values must be of type list, int or float.')
-        elif isinstance(sizes_total, UniformRange):
-            sample = sizes_total.sample()
-            if isinstance(sample, list):
-                self.sizes_total = sample
-            else:
-                raise TypeError("sizes_total.sample() must be of type list.")
-
-        # sizes_center
-        if isinstance(sizes_center, list):
-            self.sizes_center = sizes_center
-        elif isinstance(sizes_center, FiniteSelection):
-            sample = sizes_center.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes_center = sample
-            else:
-                raise TypeError("sizes_center.sample() must be of type list.")
-        elif isinstance(sizes_center, FiniteParameter):
-            if type(sizes_center.values) is list:
-                self.sizes_center = sizes_center.values
-            elif isinstance(sizes_center.values, (int or float)):
-                self.sizes_center = [sizes_center.values]
-            else:
-                raise TypeError('sizes_center.values must be of type list, int or float.')
-        elif isinstance(sizes_center, UniformRange):
-            sample = sizes_center.sample()
-            if isinstance(sample, list):
-                self.sizes_center = sample
-            else:
-                raise TypeError("sizes_center.sample() must be of type list.")
-
-        # sizes_surround
-        if isinstance(sizes_surround, list):
-            self.sizes_surround = sizes_surround
-        elif isinstance(sizes_surround, FiniteSelection):
-            sample = sizes_surround.sample()  # random sample of n values specified in sizes
-            if isinstance(sample, list):
-                self.sizes_surround = sample
-            else:
-                raise TypeError("sizes_surround.sample() must be of type list.")
-        elif isinstance(sizes_surround, FiniteParameter):
-            if type(sizes_surround.values) is list:
-                self.sizes_surround = sizes_surround.values
-            elif isinstance(sizes_surround.values, (int or float)):
-                self.sizes_surround = [sizes_surround.values]
-            else:
-                raise TypeError('sizes_surround.values must be of type list, int or float.')
-        elif isinstance(sizes_surround, UniformRange):
-            sample = sizes_surround.sample()
-            if isinstance(sample, list):
-                self.sizes_surround = sample
-            else:
-                raise TypeError("sizes_surround.sample() must be of type list.")
-
-        # contrasts_center
-        if isinstance(contrasts_center, list):
-            self.contrasts_center = contrasts_center
-        elif isinstance(contrasts_center, FiniteSelection):
-            sample = contrasts_center.sample()
-            if isinstance(sample, list):
-                self.contrasts_center = sample
-            else:
-                raise TypeError("contrasts_center.sample() must be of type list.")
-        elif isinstance(contrasts_center, FiniteParameter):
-            if type(contrasts_center.values) is list:
-                self.contrasts_center = contrasts_center.values
-            elif isinstance(contrasts_center.values, (int or float)):
-                self.contrasts_center = [contrasts_center.values]
-            else:
-                raise TypeError('contrasts_center.values must be of type list, int or float.')
-        elif isinstance(contrasts_center, UniformRange):
-            sample = contrasts_center.sample()
-            if isinstance(sample, list):
-                self.contrasts_center = sample
-            else:
-                raise TypeError("contrasts_center.sample() must be of type list.")
-
-        # contrasts_surround
-        if isinstance(contrasts_surround, list):
-            self.contrasts_surround = contrasts_surround
-        elif isinstance(contrasts_surround, FiniteSelection):
-            sample = contrasts_surround.sample()
-            if isinstance(sample, list):
-                self.contrasts_surround = sample
-            else:
-                raise TypeError("contrasts_surround.sample() must be of type list.")
-        elif isinstance(contrasts_surround, FiniteParameter):
-            if type(contrasts_surround.values) is list:
-                self.contrasts_surround = contrasts_surround.values
-            elif isinstance(contrasts_surround.values, (int or float)):
-                self.contrasts_surround = [contrasts_surround.values]
-            else:
-                raise TypeError('contrasts_surround.values must be of type list, int or float.')
-        elif isinstance(contrasts_surround, UniformRange):
-            sample = contrasts_surround.sample()
-            if isinstance(sample, list):
-                self.contrasts_surround = sample
-            else:
-                raise TypeError("contrasts_surround.sample() must be of type list.")
-
-        # grey_levels
-        if isinstance(grey_levels, list):
-            self.grey_levels = grey_levels
-        elif isinstance(grey_levels, FiniteSelection):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-        elif isinstance(grey_levels, FiniteParameter):
-            if type(grey_levels.values) is list:
-                self.grey_levels = grey_levels.values
-            elif isinstance(grey_levels.values, (int or float)):
-                self.grey_levels = [grey_levels.values]
-            else:
-                raise TypeError('grey_levels.values must be of type list, int or float.')
-        elif isinstance(grey_levels, UniformRange):
-            sample = grey_levels.sample()
-            if isinstance(sample, list):
-                self.grey_levels = sample
-            else:
-                raise TypeError("grey_levels.sample() must be of type list.")
-
-        # orientations_center
-        if isinstance(orientations_center, list):
-            self.orientations_center = orientations_center
-        elif isinstance(orientations_center, FiniteSelection):
-            sample = orientations_center.sample()
-            if isinstance(sample, list):
-                self.orientations_center = sample
-            else:
-                raise TypeError("orientations_center.sample() must be of type list.")
-        elif isinstance(orientations_center, FiniteParameter):
-            if type(orientations_center.values) is list:
-                self.orientations_center = orientations_center.values
-            elif type(orientations_center.values) is float:
-                self.orientations_center = [orientations_center.values]
-            elif type(orientations_center.values) is int:
-                self.orientations_center = np.arange(orientations_center.values) * pi / orientations_center.values
-            else:
-                raise TypeError('orientations_center.values must be either of type list, float or int.')
-        elif isinstance(orientations_center, UniformRange):
-            sample = orientations_center.sample()
-            if isinstance(sample, list):
-                self.orientations_center = sample
-            else:
-                raise TypeError("orientations_center.sample() must be of type list.")
-
-        # orientations_surround
-        if isinstance(orientations_surround, list):
-            self.orientations_surround = orientations_surround
-        elif isinstance(orientations_surround, FiniteSelection):
-            sample = orientations_surround.sample()
-            if isinstance(sample, list):
-                self.orientations_surround = sample
-            else:
-                raise TypeError("orientations_surround.sample() must be of type list.")
-        elif isinstance(orientations_surround, FiniteParameter):
-            if type(orientations_surround.values) is list:
-                self.orientations_surround = orientations_surround.values
-            elif type(orientations_center.values) is float:
-                self.orientations_surround = [orientations_surround.values]
-            elif type(orientations_surround.values) is int:
-                self.orientations_surround = np.arange(orientations_surround.values) * pi / orientations_surround.values
-            else:
-                raise TypeError('orientations_surround.values must be either of type list, float or int.')
-        elif isinstance(orientations_surround, UniformRange):
-            sample = orientations_surround.sample()
-            if isinstance(sample, list):
-                self.orientations_surround = sample
-            else:
-                raise TypeError("orientations_surround.sample() must be of type list.")
-
-        # spatial_frequencies_center
-        if isinstance(spatial_frequencies_center, list):
-            self.spatial_frequencies_center = spatial_frequencies_center
-        elif isinstance(spatial_frequencies_center, FiniteSelection):
-            sample = spatial_frequencies_center.sample()
-            if isinstance(sample, list):
-                self.spatial_frequencies_center = sample
-            else:
-                raise TypeError("spatial_frequencies_center.sample() must be of type list.")
-        elif isinstance(spatial_frequencies_center, FiniteParameter):
-            if type(spatial_frequencies_center.values) is list:
-                self.spatial_frequencies_center = spatial_frequencies_center.values
-            elif isinstance(spatial_frequencies_center.values, (int or float)):
-                self.spatial_frequencies_center = [spatial_frequencies_center.values]
-            else:
-                raise TypeError('spatial_frequencies_center.values must be of type list, int or float.')
-        elif isinstance(spatial_frequencies_center, UniformRange):
-            sample = spatial_frequencies_center.sample()
-            if isinstance(sample, list):
-                self.spatial_frequencies_center = sample
-            else:
-                raise TypeError("spatial_frequencies_center.sample() must be of type list.")
-
         # spatial_frequencies_surround
         if spatial_frequencies_surround is None:
             self.spatial_frequencies_surround = [-6666]  # random iterable label of length>0 beyond parameter range
@@ -2026,31 +1498,6 @@ class CenterSurround(StimuliSet):
                 self.spatial_frequencies_surround = sample
             else:
                 raise TypeError("spatial_frequencies_surround.sample() must be of type list.")
-
-        # phases_center
-        if isinstance(phases_center, list):
-            self.phases_center = phases_center
-        elif isinstance(phases_center, FiniteSelection):
-            sample = phases_center.sample()
-            if isinstance(sample, list):
-                self.phases_center = sample
-            else:
-                raise TypeError("phases_center.sample() must be of type list.")
-        elif isinstance(phases_center, FiniteParameter):
-            if type(phases_center.values) is list:
-                self.phases_center = phases_center.values
-            elif type(phases_center.values) is float:
-                self.phases_center = [phases_center.values]
-            elif type(phases_center.values) is int:
-                self.phases_center = np.arange(phases_center.values) * (2 * pi) / phases_center.values
-            else:
-                raise TypeError('phases_center.values must be either of type list, float or int.')
-        elif isinstance(phases_center, UniformRange):
-            sample = phases_center.sample()
-            if isinstance(sample, list):
-                self.phases_center = sample
-            else:
-                raise TypeError("phases_center.sample() must be of type list.")
 
         # phases_surround
         if phases_surround is None:
@@ -2114,6 +1561,68 @@ class CenterSurround(StimuliSet):
             params[9] = params[8]
         return params
 
+    def _parameter_converter(self):
+        """ Reads out the type of all the ordinary input arguments and converts them to attributes. """
+        for arg_key in self.arg_dict:
+
+            arg_value = self.arg_dict[arg_key]
+
+            # case1: canvas_size, pixel_boundaries, locations, self, phases_surround, spatial_frequencies_surround
+            if arg_key in ["canvas_size", "pixel_boundaries", "locations", "self", "phases_surround",
+                           "spatial_frequencies_surround"]:
+                pass  # already implemented in __init__
+
+            # case2: orientations_center, orientations_surround, phases_surround
+            elif arg_key in ["orientations_center", "orientations_surround", "phases_center"]:
+                if isinstance(arg_value, list):
+                    setattr(self, arg_key, arg_value)
+                elif isinstance(arg_value, FiniteSelection):
+                    sample = arg_value.sample()  # random sample of n values specified in sizes
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                elif isinstance(arg_value, FiniteParameter):
+                    if isinstance(arg_value.values, list):
+                        setattr(self, arg_key, arg_value.values)
+                    elif isinstance(arg_value.values, float):
+                        setattr(self, arg_key, [arg_value.values])
+                    elif isinstance(arg_value.values, int):
+                        setattr(self, arg_key, np.arange(arg_value.values) * pi / arg_value.values)
+                    else:
+                        raise TypeError("{}.values must be either of type list, float or int.".format(arg_key))
+                elif isinstance(arg_value, UniformRange):
+                    sample = arg_value.sample()
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+
+            # case3: sizes_total, sizes_center, sizes_surround, contrasts_center, contrasts_surround, grey_levels,
+            # spatial_frequencies_center
+            else:
+                if isinstance(arg_value, list):
+                    setattr(self, arg_key, arg_value)
+                elif isinstance(arg_value, FiniteSelection):
+                    sample = arg_value.sample()  # random sample of n values specified in sizes
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                elif isinstance(arg_value, FiniteParameter):
+                    if isinstance(arg_value.values, list):
+                        setattr(self, arg_key, arg_value.values)
+                    elif isinstance(arg_value.values, (int or float)):
+                        setattr(self, arg_key, [arg_value.values])
+                    else:
+                        raise TypeError('sizes_total.values must be of type list, int or float.')
+                elif isinstance(arg_value, UniformRange):
+                    sample = arg_value.sample()
+                    if isinstance(sample, list):
+                        setattr(self, arg_key, sample)
+                    else:
+                        raise TypeError("{}.sample() must be of type list.".format(arg_key))
+
     def stimulus(self, location, size_total, size_center, size_surround, contrast_center, contrast_surround,
                  orientation_center, orientation_surround, spatial_frequency_center, spatial_frequency_surround,
                  phase_center, phase_surround, grey_level):
@@ -2137,7 +1646,7 @@ class CenterSurround(StimuliSet):
         """
 
         if size_center > size_surround:
-            raise ValueError("size_center cannot be larger than size_surround")
+            raise ValueError("size_center cannot be larger than size_surround.")
 
         x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
                            np.arange(self.canvas_size[1]) - location[1])
@@ -2176,21 +1685,22 @@ class CenterSurround(StimuliSet):
 class PlaidsGratingSet(CenterSurround):
     """ A class to generate overlapping gratings in a circular patch. """
     def __init__(self, canvas_size, locations, sizes_total, contrasts_preferred, contrasts_overlap, spatial_frequencies,
-                 orientations, phases, angles, grey_levels, pixel_boundaries=None):
+                 orientations, phases, grey_levels, angles=None, pixel_boundaries=None):
         """
-
         Args:
-            canvas_size (list of int):
-            locations (list of list):
-            sizes_total (list of float):
-            contrasts_preferred (list of float):
-            contrasts_overlap (list of float):
-            spatial_frequencies (list of float):
-            orientations (list of float):
-            phases (list of float):
-            angles (list of float):
-            grey_levels (list of float):
-            pixel_boundaries (list of float or None):
+            canvas_size (list of int): The canvas size [width, height].
+            locations (list of list): The center position of the stimulus.
+            sizes_total (list of float): the overall size of the stimulus.
+            contrasts_preferred (list of float): the contrast of the preferred circular grating.
+            contrasts_overlap (list of float): the contrast of the overlapping circular grating.
+            spatial_frequencies (list of float): the spatial frequency of the grating [cycles / pixel].
+            orientations (list of float): the orientation of the grating in radians, takes values from [0, 2*pi).
+            phases (list of float): the phase offset of the sinusoidal grating.
+            grey_levels (list of float): the mean pixel intensity.
+            angles (list of float or None): rotation angle [rad] of the overlapping grating relative to the preferred
+                grating, defaults to pi/2 (orthogonal).
+            pixel_boundaries (list of float or None): Range of values the monitor can display. Handed to the class in
+                the format [lower pixel value, upper pixel value], default is [-1,1].
         """
 
         super().__init__(
@@ -2210,7 +1720,7 @@ class PlaidsGratingSet(CenterSurround):
             grey_levels=grey_levels,
             pixel_boundaries=pixel_boundaries)
 
-        # delete unnecessary entries
+        # Delete unnecessary entries
         # sizes
         del self.sizes_center, self.sizes_surround
 
@@ -2230,7 +1740,7 @@ class PlaidsGratingSet(CenterSurround):
         self.spatial_frequencies = self.spatial_frequencies_center
         del self.spatial_frequencies_center, self.spatial_frequencies_surround
 
-        # add attributes not present in __init__ of CenterSurround class
+        # Add attributes not present in __init__ of CenterSurround class
         # contrasts_overlap
         if isinstance(contrasts_overlap, list):
             self.contrasts_overlap = contrasts_overlap
@@ -2351,3 +1861,4 @@ class PlaidsGratingSet(CenterSurround):
         plaid = circular_grating_preferred + circular_grating_overlap
 
         return plaid
+
