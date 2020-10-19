@@ -234,7 +234,9 @@ class BarsSet(StimuliSet):
         Returns:
             numpy.ndarray: bar stimulus as array with pixel intensities.
         """
-        # center the location
+        if width > length:
+            raise ValueError("width cannot be larger than length.")
+
         # coordinate grid
         x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
                            np.arange(self.canvas_size[1]) - location[1])
@@ -1727,6 +1729,9 @@ class CenterSurround(StimuliSet):
             else:
                 raise TypeError("locations.sample() must be of type list.")
 
+        # Read out the 'ordinary' input arguments and save them as attributes
+        self._parameter_converter()
+
         # spatial_frequencies_surround
         if spatial_frequencies_surround is None:
             self.spatial_frequencies_surround = [-6666]  # random iterable label of length>0 beyond parameter range
@@ -1971,7 +1976,8 @@ class PlaidsGratingSet(CenterSurround):
             phases_center=phases,
             phases_surround=None,
             grey_levels=grey_levels,
-            pixel_boundaries=pixel_boundaries)
+            pixel_boundaries=pixel_boundaries
+        )
 
         # Delete unnecessary entries
         # sizes
