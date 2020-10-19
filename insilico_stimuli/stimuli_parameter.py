@@ -3,6 +3,7 @@
 import numpy as np
 from numpy import pi
 from numpy import random as rn
+import numpy.linalg as LA
 
 import torch
 from functools import partial
@@ -170,6 +171,15 @@ class BarsSet(StimuliSet):
         # read out the other inputs and store them as attributes
         self._parameter_converter()
 
+        # For this class search methods, we want to get the parameters in an ax-friendly format
+        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+            self.auto_params = self._param_dict_for_search(locations=locations,
+                                                           lengths=lengths,
+                                                           widths=widths,
+                                                           contrasts=contrasts,
+                                                           orientations=orientations,
+                                                           grey_levels=grey_levels)
+
     def params(self):
         return [
             (self.locations, 'location'),
@@ -225,26 +235,272 @@ class BarsSet(StimuliSet):
             numpy.ndarray: bar stimulus as array with pixel intensities.
         """
         # center the location
+        # coordinate grid
         x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
                            np.arange(self.canvas_size[1]) - location[1])
-        coords = np.stack([x.flatten(), y.flatten()])
+        coords = np.stack([x.flatten(), y.flatten()])#.reshape((2,) + x.shape)
 
-        # scaling matrix A
-        A = np.array([[width/2, 0], [0, length/2]])
-        coordsA = A.dot(coords)
+        # rotation matrix
+        R = np.array([[np.cos(np.pi - orientation), -np.sin(np.pi - orientation)],
+                      [np.sin(np.pi - orientation), np.cos(np.pi - orientation)]])
 
-        # rotation matrix R
-        R = np.array([[np.cos(orientation), -np.sin(orientation)],
-                      [np.sin(orientation), np.cos(orientation)]])
-        coordsAR = R.dot(coordsA).reshape((2,) + x.shape)
+        # scaling matrix
+        A = np.array([[width / 2, 0],
+                      [0, length / 2]])
 
-        bar_no_contrast = coordsAR
+        # inverse base change
+        Minv = LA.inv(R.dot(A)).dot(coords)
+
+        # infinity norm with "radius" 1 will induce desired rectangle
+        Minv_norm = np.max(np.abs(Minv), axis=0)
+        M_inv_norm_mat = Minv_norm.reshape(x.shape)
+        bar_no_contrast = M_inv_norm_mat <= 1
 
         # add contrast
         amplitude = contrast * min(abs(self.pixel_boundaries[0] - grey_level),
                                    abs(self.pixel_boundaries[1] - grey_level))
         bar = amplitude * bar_no_contrast + grey_level
         return bar
+
+    def _param_dict_for_search(self, locations, lengths, widths, contrasts, orientations, grey_levels):
+        """
+        Create a dictionary of all bar stimulus parameters in an ax-friendly format.
+
+        Args:
+            locations: object from parameters.py module, defining the center of stimulus.
+            lengths: object from parameters.py module, defining the bar length.
+            widths: object from parameters.py module, defining the bar width.
+            contrasts: object from parameters.py module, defining the contrast of the image.
+            orientations: object from parameters.py module, defining the orientation of the bar in radians.
+            grey_levels: object from parameters.py module, defining the mean pixel intensity of the stimulus.
+
+        Returns:
+            dict of dict: dictionary of all parameters and their respective attributes, i.e. 'name, 'type', 'bounds' and
+                'log_scale'.
+        """
+        rn.seed(None)  # truely random samples
+
+        arg_dict = locals().copy()
+        del arg_dict['self']
+
+        param_dict = {}
+        for arg_key in arg_dict:
+            # "finite case" -> 'type' = choice (more than one value) or 'type' = fixed (only one value)
+            if isinstance(arg_dict[arg_key], FiniteParameter) or isinstance(arg_dict[arg_key], FiniteSelection):
+                # define the type configuration based on the number of list elements
+                if type(getattr(self, arg_key)) is list:
+                    if len(getattr(self, arg_key)) > 1:
+                        name_type = "choice"
+                    else:
+                        name_type = "fixed"
+
+                if arg_key == 'locations':  # exception handling #1: locations
+                    # width
+                    if name_type == "choice":
+                        name_width = arg_key[:-1] + "_width"
+                        param_dict[name_width] = {"name": name_width,
+                                                  "type": name_type,
+                                                  "values": [float(loc[0]) for loc in getattr(self, arg_key)]}
+                        # height
+                        name_height = arg_key[:-1] + "_height"
+                        param_dict[name_height] = {"name": name_height,
+                                                   "type": name_type,
+                                                   "values": [float(loc[1]) for loc in getattr(self, arg_key)]}
+                    elif name_type == "fixed":
+                        name_width = arg_key[:-1] + "_width"
+                        param_dict[name_width] = {"name": name_width,
+                                                  "type": name_type,
+                                                  "value": [float(loc[0]) for loc in getattr(self, arg_key)][0]}
+                        # height
+                        name_height = arg_key[:-1] + "_height"
+                        param_dict[name_height] = {"name": name_height,
+                                                   "type": name_type,
+                                                   "value": [float(loc[1]) for loc in getattr(self, arg_key)][0]}
+                else:
+                    name = arg_key[:-1]
+                    if name_type == "choice":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "values": getattr(self, arg_key)}
+                    elif name_type == "fixed":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "value": getattr(self, arg_key)[0]}
+
+            # "infinite case" -> 'type' = range
+            elif isinstance(arg_dict[arg_key], UniformRange):
+                if arg_key == 'locations':
+                    range_name = arg_key + '_range'
+                    # width
+                    name_width = arg_key[:-1] + "_width"
+                    param_dict[name_width] = {"name": name_width,
+                                              "type": "range",
+                                              "bounds": getattr(self, range_name)[0]}
+                    # height
+                    name_height = arg_key[:-1] + "_height"
+                    param_dict[name_height] = {"name": name_height,
+                                               "type": "range",
+                                               "bounds": getattr(self, range_name)[1]}
+                else:
+                    name = arg_key[:-1]
+                    range_name = arg_key + "_range"
+                    param_dict[name] = {"name": name,
+                                        "type": "range",
+                                        "bounds": getattr(self, range_name)}
+        return param_dict
+
+    def get_image_from_params(self, auto_params):
+        """
+        Generates the bar stimulus corresponding to the parameters given in auto_params.
+
+        Args:
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'lengths': value3, 'widths' : ...}
+
+        Returns:
+            numpy.array: Pixel intensities of the desired bar stimulus.
+
+        """
+        auto_params_copy = auto_params.copy()
+        auto_params_copy['location'] = [auto_params_copy['location_width'], auto_params_copy['location_height']]
+        del auto_params_copy['location_width'], auto_params_copy['location_height']
+        return self.stimulus(**auto_params_copy)
+
+    def train_evaluate(self, auto_params, model, data_key, unit_idx):
+        """
+        Evaluates the activation of a specific neuron in an evaluated (e.g. nnfabrik) model given the bar stimulus
+        parameters.
+
+        Args:
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'length': value3, 'width' : ...}
+            model (Encoder): evaluated model (e.g. nnfabrik) of interest.
+            data_key (str): session ID.
+            unit_idx (int): index of the desired model neuron.
+
+        Returns:
+            float: The activation of the bar stimulus image of the model neuron specified in unit_idx.
+        """
+        auto_params_copy = auto_params.copy()
+        image = self.get_image_from_params(auto_params_copy)
+        image_tensor = torch.tensor(image).expand(1, 1, self.canvas_size[1], self.canvas_size[0]).float()
+        activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
+        return float(activation[unit_idx])
+
+    def find_optimal_stimulus_bayes(self, model, data_key, unit_idx, total_trials=30):
+        """
+        Runs Bayesian parameter optimization to find optimal bar stimulus (refer to https://ax.dev/docs/api.html).
+
+        Args:
+            model (Encoder): the underlying model of interest.
+            data_key (str): session ID of model.
+            unit_idx (int): unit index of desired neuron.
+            total_trials (int or None): number of optimization steps (default is 30 trials).
+
+        Returns
+            - list of dict: The list entries are dictionaries which store the optimal parameter combinations for the
+            corresponding unit. It has the variable name in the key and the optimal value in the values, i.e.
+            [{'location_width': value1, 'location_height': value2, 'length': value3, ...}, ...]
+            - list of tuple: The unit activations of the found optimal bar stimulus of the form
+            [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
+        """
+
+        # ??? if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
+
+        parameters = list(self.auto_params.values())
+
+        # define helper function as input to 'optimize'
+        def train_evaluate_helper(auto_params):
+            return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
+
+       # run Bayesian search
+        best_params, values, _, _ = optimize(parameters=parameters.copy(),
+                                             evaluation_function=train_evaluate_helper,
+                                             objective_name='activation',
+                                             total_trials=total_trials)
+        return best_params, values
+
+    def find_optimal_stimulus_bruteforce(self, model, data_key, batch_size=100, return_activations=False, unit_idx=None,
+                                         plotflag=False):
+        """
+        Finds optimal parameter combination for all units based on brute force testing method.
+
+        Args:
+            model (Encoder): The evaluated model as an encoder class.
+            data_key (char): data key or session ID of model.
+            batch_size (int or optional): number of images per batch.
+            return_activations (bool or None): return maximal activation alongside its parameter combination
+            unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
+                parameters for all model neurons (advised, because search is done for all units anyway).
+            plotflag (bool or None): if True, plots the evolution of the maximal activation of the number of images
+                tested (default: False).
+
+        Returns
+            - params (list of dict): The optimal parameter settings for each of the different units
+            - max_activation (np.array of float): The maximal firing rate for each of the units over all images tested
+        """
+        if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
+            raise TypeError('This method needs inputs of type FiniteParameter or FiniteSelection.')
+
+        n_images = np.prod(self.num_params())  # number of all parameter combinations
+        n_units = model.readout[data_key].outdims  # number of units
+
+        max_act_evo = np.zeros((n_images + 1, n_units))  # init storage of maximal activation evolution
+        activations = np.zeros(n_units)  # init activation array for all tested images
+
+        # divide set of images in batches before showing it to the model
+        for batch_idx, batch in enumerate(self.image_batches(batch_size)):
+
+            if batch.shape[0] != batch_size:
+                batch_size = batch.shape[0]
+
+            # create images and compute activation for current batch
+            images_batch = batch.reshape((batch_size,) + tuple(self.canvas_size))
+            images_batch = np.expand_dims(images_batch, axis=1)
+            images_batch = torch.tensor(images_batch).float()
+            activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
+
+            if plotflag:  # evolution of maximal activation
+                for unit in range(0, n_units):
+                    for idx, act in enumerate(activations_batch):
+                        i = (idx + 1) + batch_idx * batch_size
+                        max_act_evo[i, unit] = max(act[unit], max_act_evo[i - 1, unit])
+
+            # max and argmax for current batch
+            activations = np.vstack([activations, activations_batch])
+
+        # delete the first row (only zeros) by which we initialized
+        activations = np.delete(activations, 0, axis=0)
+
+        # get maximal activations for each unit
+        max_activations = np.amax(activations, axis=0)
+
+        # get the image index of the maximal activations
+        argmax_activations = np.argmax(activations, axis=0)
+
+        params = [None] * n_units  # init list with parameter dictionaries
+        for unit, opt_param_idx in enumerate(argmax_activations):
+            params[unit] = self.params_dict_from_idx(opt_param_idx)
+
+        # plot the evolution of the maximal activation for each additional image
+        if plotflag:
+            fig, ax = plt.subplots()
+            for unit in range(0, n_units):
+                ax.plot(np.arange(0, n_images + 1), max_act_evo[:, unit])
+            plt.xlabel('Number of Images')
+            plt.ylabel('Maximal Activation')
+
+        # catch return options
+        if unit_idx is not None:
+            if return_activations:
+                return params[unit_idx], activations[unit_idx], max_activations[unit_idx]
+            else:
+                return params[unit_idx], activations[unit_idx]
+        else:
+            if return_activations:
+                return params, activations, max_activations
+            else:
+                return params, activations
 
 
 class GaborSet(StimuliSet):
@@ -1115,7 +1371,7 @@ class DiffOfGaussians(StimuliSet):
     def _param_dict_for_search(self, locations, sizes, sizes_scale_surround, contrasts, contrasts_scale_surround,
                                grey_levels):
         """
-        Create a dictionary of all Gabor parameters to an ax-friendly format.
+        Create a dictionary of all DoG parameters in an ax-friendly format.
 
         Args:
             locations: object from parameters.py module, defining the center of stimulus.
@@ -1236,14 +1492,14 @@ class DiffOfGaussians(StimuliSet):
 
     def get_image_from_params(self, auto_params):
         """
-        Generates the Gabor corresponding to the parameters given in auto_params.
+        Generates the DoG corresponding to the parameters given in auto_params.
 
         Args:
             auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
-                {'location_width': value1, 'location_height': value2, 'size': value3, 'spatial_frequency' : ...}
+                {'location_width': value1, 'location_height': value2, 'size': value3, 'sizes_scale_surround' : ...}
 
         Returns:
-            numpy.array: Pixel intensities of the desired Gabor stimulus.
+            numpy.array: Pixel intensities of the desired DoG stimulus.
 
         """
         auto_params_copy = auto_params.copy()
@@ -1253,17 +1509,17 @@ class DiffOfGaussians(StimuliSet):
 
     def train_evaluate(self, auto_params, model, data_key, unit_idx):
         """
-        Evaluates the activation of a specific neuron in an evaluated (e.g. nnfabrik) model given the Gabor parameters.
+        Evaluates the activation of a specific neuron in an evaluated (e.g. nnfabrik) model given the DoG parameters.
 
         Args:
             auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
-                {'location_width': value1, 'location_height': value2, 'size': value3, 'spatial_frequency' : ...}
+                {'location_width': value1, 'location_height': value2, 'size': value3, 'sizes_scale_surround' : ...}
             model (Encoder): evaluated model (e.g. nnfabrik) of interest.
             data_key (str): session ID.
             unit_idx (int): index of the desired model neuron.
 
         Returns:
-            float: The activation of the Gabor image of the model neuron specified in unit_idx.
+            float: The activation of the DoG image of the model neuron specified in unit_idx.
         """
         auto_params_copy = auto_params.copy()
         image = self.get_image_from_params(auto_params_copy)
@@ -1273,7 +1529,7 @@ class DiffOfGaussians(StimuliSet):
 
     def find_optimal_stimulus(self, model, data_key, unit_idx, total_trials=30):
         """
-        Runs Bayesian parameter optimization to find optimal Gabor (refer to https://ax.dev/docs/api.html).
+        Runs Bayesian parameter optimization to find optimal DoG stimulus (refer to https://ax.dev/docs/api.html).
 
         Args:
             model (Encoder): the underlying model of interest.
@@ -1285,12 +1541,9 @@ class DiffOfGaussians(StimuliSet):
             - list of dict: The list entries are dictionaries which store the optimal parameter combinations for the
             corresponding unit. It has the variable name in the key and the optimal value in the values, i.e.
             [{'location_width': value1, 'location_height': value2, 'size': value3, ...}, ...]
-            - list of tuple: The unit activations of the found optimal Gabor of the form [({'activation': mean_unit1},
+            - list of tuple: The unit activations of the found optimal DoG of the form [({'activation': mean_unit1},
             {'activation': {'activation': sem_unit1}}), ...].
         """
-
-        # ??? if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
-
         parameters = list(self.auto_params.values())
 
         # define helper function as input to 'optimize'
