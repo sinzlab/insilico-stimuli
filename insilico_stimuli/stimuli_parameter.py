@@ -177,7 +177,7 @@ class BarsSet(StimuliSet):
         # For this class search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["canvas_size", "pixel_boundaries"]:
+            if arg in ["self", "canvas_size", "pixel_boundaries"]:
                 pass
             else:
                 type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
@@ -649,7 +649,7 @@ class GaborSet(StimuliSet):
         # For this class search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["canvas_size", "pixel_boundaries", "relative_sf"]:
+            if arg in ["self", "canvas_size", "pixel_boundaries", "relative_sf"]:
                 pass
             else:
                 type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
@@ -1294,7 +1294,7 @@ class DiffOfGaussians(StimuliSet):
         # For this class search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["canvas_size", "pixel_boundaries"]:
+            if arg in ["self", "canvas_size", "pixel_boundaries"]:
                 pass
             else:
                 type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
@@ -1841,7 +1841,7 @@ class CenterSurround(StimuliSet):
         # For this class' search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["canvas_size", "pixel_boundaries"]:
+            if arg in ["self", "canvas_size", "pixel_boundaries"]:
                 pass
             else:
                 type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
