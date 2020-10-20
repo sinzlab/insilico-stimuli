@@ -416,7 +416,7 @@ class BarsSet(StimuliSet):
             [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
         """
         if not hasattr(self, "auto_params"):
-            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+            raise TypeError("find_optimal_stimulus search method only supports input parameters from module "
                             "parameters.py")
 
         parameters = list(self.auto_params.values())
@@ -936,7 +936,7 @@ class GaborSet(StimuliSet):
             {'activation': {'activation': sem_unit1}}), ...].
         """
         if not hasattr(self, "auto_params"):
-            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+            raise TypeError("find_optimal_stimulus search method only supports input parameters from module "
                             "parameters.py")
 
         parameters = list(self.auto_params.values())
@@ -1575,7 +1575,7 @@ class DiffOfGaussians(StimuliSet):
             {'activation': {'activation': sem_unit1}}), ...].
         """
         if not hasattr(self, "auto_params"):
-            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+            raise TypeError("find_optimal_stimulus search method only supports input parameters from module "
                             "parameters.py")
 
         parameters = list(self.auto_params.values())
@@ -2235,7 +2235,7 @@ class CenterSurround(StimuliSet):
             [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
         """
         if not hasattr(self, "auto_params"):
-            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+            raise TypeError("find_optimal_stimulus search method only supports input parameters from module "
                             "parameters.py")
 
         parameters = list(self.auto_params.values())
