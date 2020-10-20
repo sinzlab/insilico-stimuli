@@ -97,6 +97,9 @@ class StimuliSet:
 
 
 class BarsSet(StimuliSet):
+    """
+    A class to generate bar stimuli.
+    """
     def __init__(self, canvas_size, locations, lengths, widths, contrasts, orientations, grey_levels,
                  pixel_boundaries=None):
         """Args:
