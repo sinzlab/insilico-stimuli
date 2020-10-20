@@ -614,7 +614,7 @@ class GaborSet(StimuliSet):
 
         # eccentricities
         if eccentricities is None:
-            self.gammas = [1]  # default
+            self.gammas = [1.0]  # default
         elif isinstance(eccentricities, list):
             self.eccentricities = eccentricities
         else:
@@ -871,6 +871,11 @@ class GaborSet(StimuliSet):
                     param_dict[name] = {"name": name,
                                         "type": "range",
                                         "bounds": getattr(self, range_name)}
+
+            if gammas is None:
+                param_dict['gamma'] = {'name': 'gamma',
+                                       'type': 'fixed',
+                                       'value': 1.0}
         return param_dict
 
     def get_image_from_params(self, auto_params):
