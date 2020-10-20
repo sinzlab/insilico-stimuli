@@ -389,7 +389,7 @@ class BarsSet(StimuliSet):
         activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
         return float(activation[unit_idx])
 
-    def find_optimal_stimulus_bayes(self, model, data_key, unit_idx, total_trials=30):
+    def find_optimal_stimulus(self, model, data_key, unit_idx, total_trials=30):
         """
         Runs Bayesian parameter optimization to find optimal bar stimulus (refer to https://ax.dev/docs/api.html).
 
@@ -509,7 +509,7 @@ class BarsSet(StimuliSet):
 
 class GaborSet(StimuliSet):
     """
-    A class to generate Gabor stimuli as sinusoidal gratings modulated by Gaussian envelope.
+    A class to generate Gabor stimuli as sinusoidal gratings modulated by a Gaussian envelope.
     """
     def __init__(self, canvas_size, locations, sizes, spatial_frequencies, contrasts, orientations, phases, grey_levels,
                  eccentricities=None, pixel_boundaries=None, relative_sf=None):
@@ -899,7 +899,7 @@ class GaborSet(StimuliSet):
         activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
         return float(activation[unit_idx])
 
-    def find_optimal_stimulus_bayes(self, model, data_key, unit_idx, total_trials=30):
+    def find_optimal_stimulus(self, model, data_key, unit_idx, total_trials=30):
         """
         Runs Bayesian parameter optimization to find optimal Gabor (refer to https://ax.dev/docs/api.html).
 
@@ -1805,6 +1805,22 @@ class CenterSurround(StimuliSet):
             else:
                 raise TypeError("phases_surround.range must be of type list.")
 
+        # For this class search methods, we want to get the parameters in an ax-friendly format
+        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+            self.auto_params = self._param_dict_for_search(locations=locations,
+                                                           sizes_total=sizes_total,
+                                                           sizes_center=sizes_center,
+                                                           sizes_surround=sizes_surround,
+                                                           contrasts_center=contrasts_center,
+                                                           contrasts_surround=contrasts_surround,
+                                                           orientations_center=orientations_center,
+                                                           orientations_surround=orientations_surround,
+                                                           spatial_frequencies_center=spatial_frequencies_center,
+                                                           phases_center=phases_center,
+                                                           grey_levels=grey_levels,
+                                                           spatial_frequencies_surround=spatial_frequencies_surround,
+                                                           phases_surround=phases_surround)
+
     def params(self):
         # caution when changing the order of the list entries -> conflict with method params_from_idx()
         return [
@@ -2143,7 +2159,7 @@ class CenterSurround(StimuliSet):
         activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
         return float(activation[unit_idx])
 
-    def find_optimal_stimulus_bayes(self, model, data_key, unit_idx, total_trials=30):
+    def find_optimal_stimulus(self, model, data_key, unit_idx, total_trials=30):
         """
         Runs Bayesian parameter optimization to find optimal bar stimulus (refer to https://ax.dev/docs/api.html).
 
