@@ -2156,23 +2156,23 @@ class CenterSurround(StimuliSet):
                                         "type": "range",
                                         "bounds": getattr(self, range_name)}
 
-        # if spatial_frequencies_surround is None:
-        #     if self.sizes_center == [1.0]:  # circular patch
-        #         param_dict["spatial_frequency_surround"] = {"name": "spatial_frequency_surround",
-        #                                                     "type": "fixed",
-        #                                                     "value": 0.0}
-        #     else:
-        #         param_dict["spatial_frequency_surround"] = param_dict["spatial_frequency_center"]
-        #         param_dict["spatial_frequency_surround"]["name"] = "spatial_frequency_surround"
-        #
-        # if phases_surround is None:
-        #     if self.sizes_center == [1.0]:  # circular patch
-        #         param_dict["phase_surround"] = {"name": "phase_surround",
-        #                                         "type": "fixed",
-        #                                         "value": 0.0}
-        #     else:
-        #         param_dict["phase_surround"] = param_dict["phase_center"]
-        #         param_dict["phase_surround"]["name"] = "phase_surround"
+        if spatial_frequencies_surround is None:
+            if self.sizes_center == [1.0]:  # circular patch
+                param_dict["spatial_frequency_surround"] = {"name": "spatial_frequency_surround",
+                                                            "type": "fixed",
+                                                            "value": 0.0}
+            else:
+                param_dict["spatial_frequency_surround"] = param_dict["spatial_frequency_center"].copy()
+                param_dict["spatial_frequency_surround"]["name"] = "spatial_frequency_surround"
+
+        if phases_surround is None:
+            if self.sizes_center == [1.0]:  # circular patch
+                param_dict["phase_surround"] = {"name": "phase_surround",
+                                                "type": "fixed",
+                                                "value": 0.0}
+            else:
+                param_dict["phase_surround"] = param_dict["phase_center"].copy()
+                param_dict["phase_surround"]["name"] = "phase_surround"
 
         return param_dict
 
