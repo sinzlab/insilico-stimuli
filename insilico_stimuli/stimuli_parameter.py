@@ -177,8 +177,8 @@ class BarsSet(StimuliSet):
             if arg in ["canvas_size", "pixel_boundaries"]:
                 pass
             else:
-                type_check.append(isinstance(self.arg_dict[arg], list))
-        if not any(type_check):
+                type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
+        if all(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            lengths=lengths,
                                                            widths=widths,
@@ -649,8 +649,8 @@ class GaborSet(StimuliSet):
             if arg in ["canvas_size", "pixel_boundaries", "relative_sf"]:
                 pass
             else:
-                type_check.append(isinstance(self.arg_dict[arg], list))
-        if not any(type_check):
+                type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
+        if all(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes=sizes,
                                                            spatial_frequencies=spatial_frequencies,
@@ -1294,8 +1294,8 @@ class DiffOfGaussians(StimuliSet):
             if arg in ["canvas_size", "pixel_boundaries"]:
                 pass
             else:
-                type_check.append(isinstance(self.arg_dict[arg], list))
-        if not any(type_check):
+                type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
+        if all(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes=sizes,
                                                            sizes_scale_surround=sizes_scale_surround,
@@ -1841,8 +1841,8 @@ class CenterSurround(StimuliSet):
             if arg in ["canvas_size", "pixel_boundaries"]:
                 pass
             else:
-                type_check.append(isinstance(self.arg_dict[arg], list))
-        if not any(type_check):
+                type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
+        if all(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes_total=sizes_total,
                                                            sizes_center=sizes_center,
