@@ -172,7 +172,13 @@ class BarsSet(StimuliSet):
         self._parameter_converter()
 
         # For this class search methods, we want to get the parameters in an ax-friendly format
-        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+        type_check = []
+        for arg in self.arg_dict:
+            if arg in ["canvas_size", "pixel_boundaries"]:
+                pass
+            else:
+                type_check.append(isinstance(self.arg_dict[arg], list))
+        if not any(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            lengths=lengths,
                                                            widths=widths,
@@ -406,8 +412,7 @@ class BarsSet(StimuliSet):
             - list of tuple: The unit activations of the found optimal bar stimulus of the form
             [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
         """
-        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
-                list(self.arg_dict.values())]):
+        if not hasattr(self, "auto_params"):
             raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
                             "parameters.py")
 
@@ -639,7 +644,13 @@ class GaborSet(StimuliSet):
         self._parameter_converter()
 
         # For this class search methods, we want to get the parameters in an ax-friendly format
-        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+        type_check = []
+        for arg in self.arg_dict:
+            if arg in ["canvas_size", "pixel_boundaries", "relative_sf"]:
+                pass
+            else:
+                type_check.append(isinstance(self.arg_dict[arg], list))
+        if not any(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes=sizes,
                                                            spatial_frequencies=spatial_frequencies,
@@ -916,8 +927,7 @@ class GaborSet(StimuliSet):
             - list of tuple: The unit activations of the found optimal Gabor of the form [({'activation': mean_unit1},
             {'activation': {'activation': sem_unit1}}), ...].
         """
-        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
-                list(self.arg_dict.values())]):
+        if not hasattr(self, "auto_params"):
             raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
                             "parameters.py")
 
@@ -1274,7 +1284,13 @@ class DiffOfGaussians(StimuliSet):
         self._parameter_converter()
 
         # For this class search methods, we want to get the parameters in an ax-friendly format
-        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+        type_check = []
+        for arg in self.arg_dict:
+            if arg in ["canvas_size", "pixel_boundaries"]:
+                pass
+            else:
+                type_check.append(isinstance(self.arg_dict[arg], list))
+        if not any(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes=sizes,
                                                            sizes_scale_surround=sizes_scale_surround,
@@ -1550,8 +1566,7 @@ class DiffOfGaussians(StimuliSet):
             - list of tuple: The unit activations of the found optimal DoG of the form [({'activation': mean_unit1},
             {'activation': {'activation': sem_unit1}}), ...].
         """
-        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
-                list(self.arg_dict.values())]):
+        if not hasattr(self, "auto_params"):
             raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
                             "parameters.py")
 
@@ -1685,14 +1700,24 @@ class CenterSurround(StimuliSet):
                 Can be either a list or an object from parameters.py module.
             spatial_frequencies_center (list of float): The inverse of the wavelength of the center gratings in
                 absolute units [cycles / pixel]. Can be either a list or an object from parameters.py module.
-            phases_center (list of float): The phase offset of the center sinusoidal gratings. Takes values from -pi to
-                pi. Can be either a list or an object from parameters.py module.
+            phases_center (list of float): The phase offset of the center sinusoidal gratings. Takes values from
+                [0, 2*pi) Can be either a list or an object from parameters.py module.
             grey_levels (list of float): The mean luminance/pixel value. Can be either a list or an object from
                 parameters.py module.
             spatial_frequencies_surround (list of float or None): The inverse of the wavelength of the center gratings
-                in absolute units [cycles / pixel]. If not specified, use same value as in 'spatial_frequencies_center'.
+                in absolute units [cycles / pixel]. If not specified, use same value as in 'spatial_frequencies_center'
+                for both generation methods and search methods. In particular, if spatial_frequencies_surround is not
+                specified, it will be run over the same value/s as spatial_frequencies_center. In the UniformRange case,
+                for the search method, this means that the two parameters are optimized independently from each other
+                over the same range. When sizes_center is 1.0, then there is no surround. For this case, the search
+                method should not optimize over spatial_frequencies_surround. For this case, the parameter is set to 0.
             phases_surround (list of float or None): The phase offset of the surround sinusoidal gratings. Takes values
-                from -pi to pi. If not specified, use same value as in 'phases_center'.
+                from [0, 2*pi). If not specified, use same value as in 'phases_center' for both generation methods and
+                search methods. In particular, if phases_surround is not specified, it will be run over the same value/s
+                as phases_center. In the UniformRange case, for the search method, this means that the two parameters
+                are optimized independently from each other over the same range. When sizes_center is 1.0, then there is
+                no surround. For this case, the search method should not optimize over phases_surround. For this case,
+                the parameter is set to 0.
             pixel_boundaries (list of float or None): Range of values the monitor can display. Handed to the class in
                 the format [lower pixel value, upper pixel value], default is [-1,1].
         """
@@ -1805,8 +1830,14 @@ class CenterSurround(StimuliSet):
             else:
                 raise TypeError("phases_surround.range must be of type list.")
 
-        # For this class search methods, we want to get the parameters in an ax-friendly format
-        if not any([isinstance(arg, list) for arg in self.arg_dict]):
+        # For this class' search methods, we want to get the parameters in an ax-friendly format
+        type_check = []
+        for arg in self.arg_dict:
+            if arg in ["canvas_size", "pixel_boundaries"]:
+                pass
+            else:
+                type_check.append(isinstance(self.arg_dict[arg], list))
+        if not any(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes_total=sizes_total,
                                                            sizes_center=sizes_center,
@@ -2119,6 +2150,25 @@ class CenterSurround(StimuliSet):
                     param_dict[name] = {"name": name,
                                         "type": "range",
                                         "bounds": getattr(self, range_name)}
+
+        # if spatial_frequencies_surround is None:
+        #     if self.sizes_center == [1.0]:  # circular patch
+        #         param_dict["spatial_frequency_surround"] = {"name": "spatial_frequency_surround",
+        #                                                     "type": "fixed",
+        #                                                     "value": 0.0}
+        #     else:
+        #         param_dict["spatial_frequency_surround"] = param_dict["spatial_frequency_center"]
+        #         param_dict["spatial_frequency_surround"]["name"] = "spatial_frequency_surround"
+        #
+        # if phases_surround is None:
+        #     if self.sizes_center == [1.0]:  # circular patch
+        #         param_dict["phase_surround"] = {"name": "phase_surround",
+        #                                         "type": "fixed",
+        #                                         "value": 0.0}
+        #     else:
+        #         param_dict["phase_surround"] = param_dict["phase_center"]
+        #         param_dict["phase_surround"]["name"] = "phase_surround"
+
         return param_dict
 
     def get_image_from_params(self, auto_params):
@@ -2176,8 +2226,7 @@ class CenterSurround(StimuliSet):
             - list of tuple: The unit activations of the found optimal bar stimulus of the form
             [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
         """
-        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
-                list(self.arg_dict.values())]):
+        if not hasattr(self, "auto_params"):
             raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
                             "parameters.py")
 
