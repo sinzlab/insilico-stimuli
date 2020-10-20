@@ -4,11 +4,13 @@ import numpy as np
 from numpy import pi
 from numpy import random as rn
 
+import torch
 from functools import partial
 from ax.service.managed_loop import optimize
 
-import torch
 import matplotlib.pyplot as plt
+
+from insilico_stimuli.parameters import *
 
 
 class StimuliSet:

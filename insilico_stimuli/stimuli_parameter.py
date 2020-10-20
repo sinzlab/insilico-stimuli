@@ -1841,7 +1841,7 @@ class CenterSurround(StimuliSet):
         # For this class' search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["self", "canvas_size", "pixel_boundaries"]:
+            if arg in ["self", "canvas_size", "pixel_boundaries", "phases_surround", "spatial_frequencies_surround"]:
                 pass
             else:
                 type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
