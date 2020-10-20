@@ -406,8 +406,10 @@ class BarsSet(StimuliSet):
             - list of tuple: The unit activations of the found optimal bar stimulus of the form
             [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
         """
-
-        # ??? if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
+        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
+                list(self.arg_dict.values())]):
+            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+                            "parameters.py")
 
         parameters = list(self.auto_params.values())
 
@@ -415,7 +417,7 @@ class BarsSet(StimuliSet):
         def train_evaluate_helper(auto_params):
             return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
 
-       # run Bayesian search
+        # run Bayesian search
         best_params, values, _, _ = optimize(parameters=parameters.copy(),
                                              evaluation_function=train_evaluate_helper,
                                              objective_name='activation',
@@ -914,8 +916,10 @@ class GaborSet(StimuliSet):
             - list of tuple: The unit activations of the found optimal Gabor of the form [({'activation': mean_unit1},
             {'activation': {'activation': sem_unit1}}), ...].
         """
-
-        # ??? if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
+        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
+                list(self.arg_dict.values())]):
+            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+                            "parameters.py")
 
         parameters = list(self.auto_params.values())
 
@@ -1546,6 +1550,11 @@ class DiffOfGaussians(StimuliSet):
             - list of tuple: The unit activations of the found optimal DoG of the form [({'activation': mean_unit1},
             {'activation': {'activation': sem_unit1}}), ...].
         """
+        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
+                list(self.arg_dict.values())]):
+            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+                            "parameters.py")
+
         parameters = list(self.auto_params.values())
 
         # define helper function as input to 'optimize'
@@ -1655,7 +1664,7 @@ class CenterSurround(StimuliSet):
             canvas_size (list of int): The canvas size [width, height].
             locations (list of list): specifies the center position of the stimulus. Can be either of type list or an
                 object from parameters.py module. This module has 3 relevant classes: FiniteParameter, FiniteSelection,
-                and UniformRange. FiniteParameter objects will be treated exactely like lists. FiniteSelection objects
+                and UniformRange. FiniteParameter objects will be treated exactly like lists. FiniteSelection objects
                 will generate n samples from the given list of values from a probability mass function. UniformRange
                 objects will sample from a continuous distribution within the defined parameter ranges. If location is
                 of type UniformRange, there cannot be an additional argument for the cumulative density distribution.
@@ -1728,6 +1737,10 @@ class CenterSurround(StimuliSet):
                 self.locations = sample
             else:
                 raise TypeError("locations.sample() must be of type list.")
+            if isinstance(locations.range, list):
+                self.locations_range = locations.range
+            else:
+                raise TypeError("locations.range must be of type list.")
 
         # Read out the 'ordinary' input arguments and save them as attributes
         self._parameter_converter()
@@ -1756,6 +1769,10 @@ class CenterSurround(StimuliSet):
                 self.spatial_frequencies_surround = sample
             else:
                 raise TypeError("spatial_frequencies_surround.sample() must be of type list.")
+            if isinstance(spatial_frequencies_surround.range, list):
+                self.spatial_frequencies_surround_range = spatial_frequencies_surround.range
+            else:
+                raise TypeError("spatial_frequencies_surround.range must be of type list.")
 
         # phases_surround
         if phases_surround is None:
@@ -1783,6 +1800,10 @@ class CenterSurround(StimuliSet):
                 self.phases_surround = sample
             else:
                 raise TypeError("phases_surround.sample() must be of type list.")
+            if isinstance(phases_surround.range, list):
+                self.phases_surround_range = phases_surround.range
+            else:
+                raise TypeError("phases_surround.range must be of type list.")
 
     def params(self):
         # caution when changing the order of the list entries -> conflict with method params_from_idx()
@@ -1855,6 +1876,10 @@ class CenterSurround(StimuliSet):
                         setattr(self, arg_key, sample)
                     else:
                         raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                    if isinstance(arg_value.range, list):
+                        setattr(self, arg_key + '_range', arg_value.range)
+                    else:
+                        raise TypeError("{}.range must be of type list.".format(arg_key))
 
             # case3: sizes_total, sizes_center, sizes_surround, contrasts_center, contrasts_surround, grey_levels,
             # spatial_frequencies_center
@@ -1880,6 +1905,10 @@ class CenterSurround(StimuliSet):
                         setattr(self, arg_key, sample)
                     else:
                         raise TypeError("{}.sample() must be of type list.".format(arg_key))
+                    if isinstance(arg_value.range, list):
+                        setattr(self, arg_key + '_range', arg_value.range)
+                    else:
+                        raise TypeError("{}.range must be of type list.".format(arg_key))
 
     def stimulus(self, location, size_total, size_center, size_surround, contrast_center, contrast_surround,
                  orientation_center, orientation_surround, spatial_frequency_center, spatial_frequency_surround,
@@ -1938,6 +1967,298 @@ class CenterSurround(StimuliSet):
         grating_surround_contrast = amplitude_surround * grating_surround
 
         return envelope_center * grating_center_contrast + envelope_surround * grating_surround_contrast
+
+    def _param_dict_for_search(self, locations, sizes_total, sizes_center, sizes_surround, contrasts_center,
+                               contrasts_surround, orientations_center, orientations_surround,
+                               spatial_frequencies_center, phases_center, grey_levels,
+                               spatial_frequencies_surround=None, phases_surround=None):
+        """
+        Create a dictionary of all bar stimulus parameters in an ax-friendly format.
+
+        Args:
+            locations: object from parameters.py module, defining the center of the stimulus.
+            sizes_total: object from parameters.py module, defining the total size of the stimulus in [#pixels].
+            sizes_center: object from parameters.py module, defining the relative size of the center.
+            sizes_surround: object from parameters.py module, defining the relative size of the surround.
+            contrasts_center: object from parameters.py module, defining the contrast for the center.
+            contrasts_surround: object from parameters.py module, defining the contrast of the surround.
+            orientations_center: object from parameters.py module, defining the orientation of the grating of the
+                center.
+            orientations_surround: object from parameters.py module, defining the orientation of the grating in the
+                surround.
+            spatial_frequencies_center: object from parameters.py module, defining the spatial frequency in the center.
+            phases_center: object from parameters.py module, defining the phase offset of the sinusoidal in the center.
+            grey_levels: object from parameters.py module, defining the mean luminance of the image.
+            spatial_frequencies_surround: object from parameters.py module, defining the spatial frequency in the
+                surround.
+            phases_surround: object from parameters.py module, defining the phase offset of the sinusoidal in the
+                surround.
+
+        Returns:
+            dict of dict: dictionary of all parameters and their respective attributes, i.e. 'name, 'type', 'bounds' and
+                'log_scale'.
+
+        """
+        rn.seed(None)  # truely random samples
+
+        arg_dict = locals().copy()
+        del arg_dict['self']
+
+        param_dict = {}
+        for arg_key in arg_dict:
+            # "finite case" -> 'type' = choice (more than one value) or 'type' = fixed (only one value)
+            if isinstance(arg_dict[arg_key], FiniteParameter) or isinstance(arg_dict[arg_key], FiniteSelection):
+                # define the type configuration based on the number of list elements
+                if type(getattr(self, arg_key)) is list:
+                    if len(getattr(self, arg_key)) > 1:
+                        name_type = "choice"
+                    else:
+                        name_type = "fixed"
+
+                if arg_key == "locations":  # exception handling #1: locations
+                    # width
+                    if name_type == "choice":
+                        name_width = arg_key[:-1] + "_width"
+                        param_dict[name_width] = {"name": name_width,
+                                                  "type": name_type,
+                                                  "values": [float(loc[0]) for loc in getattr(self, arg_key)]}
+                        # height
+                        name_height = arg_key[:-1] + "_height"
+                        param_dict[name_height] = {"name": name_height,
+                                                   "type": name_type,
+                                                   "values": [float(loc[1]) for loc in getattr(self, arg_key)]}
+                    elif name_type == "fixed":
+                        name_width = arg_key[:-1] + "_width"
+                        param_dict[name_width] = {"name": name_width,
+                                                  "type": name_type,
+                                                  "value": [float(loc[0]) for loc in getattr(self, arg_key)][0]}
+                        # height
+                        name_height = arg_key[:-1] + "_height"
+                        param_dict[name_height] = {"name": name_height,
+                                                   "type": name_type,
+                                                   "value": [float(loc[1]) for loc in getattr(self, arg_key)][0]}
+                elif arg_key in ["spatial_frequencies_center", "spatial_frequencies_surround"]:
+                    arg_key_split = arg_key.split('_')
+                    name = "spatial_frequency" + "_" + arg_key_split[-1]
+                    if name_type == "choice":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "values": getattr(self, arg_key)}
+                    elif name_type == "fixed":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "value": getattr(self, arg_key)[0]}
+                elif arg_key == "grey_levels":  # grey_levels
+                    name = arg_key[:-1]
+                    if name_type == "choice":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "values": getattr(self, arg_key)}
+                    elif name_type == "fixed":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "value": getattr(self, arg_key)[0]}
+                else:  # all other inputs
+                    arg_key_split = arg_key.split('_')
+                    name = arg_key_split[0][:-1] + "_" + arg_key_split[1]
+                    if name_type == "choice":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "values": getattr(self, arg_key)}
+                    elif name_type == "fixed":
+                        param_dict[name] = {"name": name,
+                                            "type": name_type,
+                                            "value": getattr(self, arg_key)[0]}
+            # "infinite case" -> 'type' = range
+            elif isinstance(arg_dict[arg_key], UniformRange):
+                if arg_key == 'locations':
+                    range_name = arg_key + '_range'
+                    # width
+                    name_width = arg_key[:-1] + "_width"
+                    param_dict[name_width] = {"name": name_width,
+                                              "type": "range",
+                                              "bounds": getattr(self, range_name)[0]}
+                    # height
+                    name_height = arg_key[:-1] + "_height"
+                    param_dict[name_height] = {"name": name_height,
+                                               "type": "range",
+                                               "bounds": getattr(self, range_name)[1]}
+                elif arg_key in ["spatial_frequencies_center", "spatial_frequencies_surround"]:
+                    arg_key_split = arg_key.split('_')
+                    name = "spatial_frequency" + "_" + arg_key_split[-1]
+                    range_name = arg_key + "_range"
+                    param_dict[name] = {"name": name,
+                                        "type": "range",
+                                        "bounds": getattr(self, range_name)}
+                elif arg_key == "grey_levels":
+                    name = arg_key[:-1]
+                    range_name = arg_key + "_range"
+                    param_dict[name] = {"name": name,
+                                        "type": "range",
+                                        "bounds": getattr(self, range_name)}
+                else:  # all other inputs
+                    arg_key_split = arg_key.split('_')
+                    name = arg_key_split[0][:-1] + "_" + arg_key_split[1]
+                    range_name = arg_key + "_range"
+                    param_dict[name] = {"name": name,
+                                        "type": "range",
+                                        "bounds": getattr(self, range_name)}
+        return param_dict
+
+    def get_image_from_params(self, auto_params):
+        """
+        Generates the bar stimulus corresponding to the parameters given in auto_params.
+
+        Args:
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'lengths': value3, 'widths' : ...}
+
+        Returns:
+            numpy.array: Pixel intensities of the desired bar stimulus.
+
+        """
+        auto_params_copy = auto_params.copy()
+        auto_params_copy['location'] = [auto_params_copy['location_width'], auto_params_copy['location_height']]
+        del auto_params_copy['location_width'], auto_params_copy['location_height']
+        return self.stimulus(**auto_params_copy)
+
+    def train_evaluate(self, auto_params, model, data_key, unit_idx):
+        """
+        Evaluates the activation of a specific neuron in an evaluated (e.g. nnfabrik) model given the bar stimulus
+        parameters.
+
+        Args:
+            auto_params (dict): A dictionary which has the parameter names as keys and their realization as values, i.e.
+                {'location_width': value1, 'location_height': value2, 'length': value3, 'width' : ...}
+            model (Encoder): evaluated model (e.g. nnfabrik) of interest.
+            data_key (str): session ID.
+            unit_idx (int): index of the desired model neuron.
+
+        Returns:
+            float: The activation of the bar stimulus image of the model neuron specified in unit_idx.
+        """
+        auto_params_copy = auto_params.copy()
+        image = self.get_image_from_params(auto_params_copy)
+        image_tensor = torch.tensor(image).expand(1, 1, self.canvas_size[1], self.canvas_size[0]).float()
+        activation = model(image_tensor, data_key=data_key).detach().numpy().squeeze()
+        return float(activation[unit_idx])
+
+    def find_optimal_stimulus_bayes(self, model, data_key, unit_idx, total_trials=30):
+        """
+        Runs Bayesian parameter optimization to find optimal bar stimulus (refer to https://ax.dev/docs/api.html).
+
+        Args:
+            model (Encoder): the underlying model of interest.
+            data_key (str): session ID of model.
+            unit_idx (int): unit index of desired neuron.
+            total_trials (int or None): number of optimization steps (default is 30 trials).
+
+        Returns
+            - list of dict: The list entries are dictionaries which store the optimal parameter combinations for the
+            corresponding unit. It has the variable name in the key and the optimal value in the values, i.e.
+            [{'location_width': value1, 'location_height': value2, 'length': value3, ...}, ...]
+            - list of tuple: The unit activations of the found optimal bar stimulus of the form
+            [({'activation': mean_unit1}, {'activation': {'activation': sem_unit1}}), ...].
+        """
+        if any([not isinstance(par, (FiniteParameter, FiniteSelection, UniformRange)) for par in
+                list(self.arg_dict.values())]):
+            raise TypeError("find_optimal_stimulus_bayes search method only supports input parameters from module "
+                            "parameters.py")
+
+        parameters = list(self.auto_params.values())
+
+        # define helper function as input to 'optimize'
+        def train_evaluate_helper(auto_params):
+            return partial(self.train_evaluate, model=model, data_key=data_key, unit_idx=unit_idx)(auto_params)
+
+        # run Bayesian search
+        best_params, values, _, _ = optimize(parameters=parameters.copy(),
+                                             evaluation_function=train_evaluate_helper,
+                                             objective_name='activation',
+                                             total_trials=total_trials)
+        return best_params, values
+
+    def find_optimal_stimulus_bruteforce(self, model, data_key, batch_size=100, return_activations=False, unit_idx=None,
+                                         plotflag=False):
+        """
+        Finds optimal parameter combination for all units based on brute force testing method.
+
+        Args:
+            model (Encoder): The evaluated model as an encoder class.
+            data_key (char): data key or session ID of model.
+            batch_size (int or optional): number of images per batch.
+            return_activations (bool or None): return maximal activation alongside its parameter combination
+            unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
+                parameters for all model neurons (advised, because search is done for all units anyway).
+            plotflag (bool or None): if True, plots the evolution of the maximal activation of the number of images
+                tested (default: False).
+
+        Returns
+            - params (list of dict): The optimal parameter settings for each of the different units
+            - max_activation (np.array of float): The maximal firing rate for each of the units over all images tested
+        """
+        if any([isinstance(par, UniformRange) for par in list(self.arg_dict.values())]):
+            raise TypeError('This method needs inputs of type FiniteParameter or FiniteSelection.')
+
+        n_images = np.prod(self.num_params())  # number of all parameter combinations
+        n_units = model.readout[data_key].outdims  # number of units
+
+        max_act_evo = np.zeros((n_images + 1, n_units))  # init storage of maximal activation evolution
+        activations = np.zeros(n_units)  # init activation array for all tested images
+
+        # divide set of images in batches before showing it to the model
+        for batch_idx, batch in enumerate(self.image_batches(batch_size)):
+
+            if batch.shape[0] != batch_size:
+                batch_size = batch.shape[0]
+
+            # create images and compute activation for current batch
+            images_batch = batch.reshape((batch_size,) + tuple(self.canvas_size))
+            images_batch = np.expand_dims(images_batch, axis=1)
+            images_batch = torch.tensor(images_batch).float()
+            activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
+
+            if plotflag:  # evolution of maximal activation
+                for unit in range(0, n_units):
+                    for idx, act in enumerate(activations_batch):
+                        i = (idx + 1) + batch_idx * batch_size
+                        max_act_evo[i, unit] = max(act[unit], max_act_evo[i - 1, unit])
+
+            # max and argmax for current batch
+            activations = np.vstack([activations, activations_batch])
+
+        # delete the first row (only zeros) by which we initialized
+        activations = np.delete(activations, 0, axis=0)
+
+        # get maximal activations for each unit
+        max_activations = np.amax(activations, axis=0)
+
+        # get the image index of the maximal activations
+        argmax_activations = np.argmax(activations, axis=0)
+
+        params = [None] * n_units  # init list with parameter dictionaries
+        for unit, opt_param_idx in enumerate(argmax_activations):
+            params[unit] = self.params_dict_from_idx(opt_param_idx)
+
+        # plot the evolution of the maximal activation for each additional image
+        if plotflag:
+            fig, ax = plt.subplots()
+            for unit in range(0, n_units):
+                ax.plot(np.arange(0, n_images + 1), max_act_evo[:, unit])
+            plt.xlabel('Number of Images')
+            plt.ylabel('Maximal Activation')
+
+        # catch return options
+        if unit_idx is not None:
+            if return_activations:
+                return params[unit_idx], activations[unit_idx], max_activations[unit_idx]
+            else:
+                return params[unit_idx], activations[unit_idx]
+        else:
+            if return_activations:
+                return params, activations, max_activations
+            else:
+                return params, activations
 
 
 class PlaidsGratingSet(CenterSurround):
