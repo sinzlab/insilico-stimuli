@@ -649,10 +649,16 @@ class GaborSet(StimuliSet):
         # For this class search methods, we want to get the parameters in an ax-friendly format
         type_check = []
         for arg in self.arg_dict:
-            if arg in ["self", "canvas_size", "pixel_boundaries", "relative_sf"]:
-                pass
+            if eccentricities is None:
+                if arg in ["self", "canvas_size", "pixel_boundaries", "relative_sf", "eccentricities"]:
+                    pass
+                else:
+                    type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
             else:
-                type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
+                if arg in ["self", "canvas_size", "pixel_boundaries", "relative_sf"]:
+                    pass
+                else:
+                    type_check.append(isinstance(self.arg_dict[arg], (FiniteParameter, FiniteSelection, UniformRange)))
         if all(type_check):
             self.auto_params = self._param_dict_for_search(locations=locations,
                                                            sizes=sizes,
@@ -781,7 +787,8 @@ class GaborSet(StimuliSet):
             contrasts: object from parameters.py module, defining the contrast of the image.
             orientations: object from parameters.py module, defining the orientation of grating relative to envelope.
             phases: object from parameters.py module, defining the phase offset of the grating.
-            gammas: object from parameters.py module, defining the spatial aspect ratio parameter of the envelope.
+            gammas: object from parameters.py module, here: defining the eccentricities (not the spatial aspect ratio)
+                parameter of the envelope.
             grey_levels: object from parameters.py module, defining the mean pixel intensity of the stimulus.
 
         Returns:
@@ -826,7 +833,6 @@ class GaborSet(StimuliSet):
                         param_dict[name_height] = {"name": name_height,
                                                    "type": name_type,
                                                    "value": [float(loc[1]) for loc in getattr(self, arg_key)][0]}
-
                 elif arg_key == 'spatial_frequencies':  # exception handling #2: spatial_frequencies
                     name = 'spatial_frequency'
                     if name_type == "choice":
