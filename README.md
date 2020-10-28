@@ -4,15 +4,23 @@ A toolset for generating image stimuli for insilico experiments.
 There are 6 different types of stimuli: bars, gabors, plaids from gabors, difference of gaussians, 
 center surrounds, plaids from circular gratings. 
 
-- search methods (become active if inputs are objects from parameters.py) implemented for bar, gabor,
-  dog, centersurround. Not implemented for the 2 plaids classes.
-- generation methods (implemented in Base Class)
+Except from the two plaid classes, all stimulus classes have implemented search methods. One search method is based on 
+an optimizer by ax-platform, which looks for optimal parameters via Bayesian search. You can specify the number of 
+optimization loops, it should perform. The optimizer can deal with hybrid parameter combinations, 
+meaning one argument (e.g. spatial frequencies) can be a continuous parameter within a given range while
+another argument (e.g. contrast) can be a fixed parameter. This search method becomes active if inputs are objects
+from parameters.py. The other search method is a bruteforce method. It only works when no input parameter is of type
+UniformRange. It will try out every parameter combination from the inputs and find that parameter combination, 
+which yields highest model activation. 
 
+Apart from the search methods, the major feature of this toolbox is to generate stimuli of all kinds. There
+are examples for every class below.
+
+Some additional notes:
 - when adding a class, always add the methods params(), _parameter_converter() and stimulus() for 
   generation and always add _param_dict_for_search() for search methods.
-
 - the parameters.py module has some untested elements in it, esp. the continuous sampling 
-- did not account for potential aliasing effects
+- we stimuli are not accounted for potential aliasing effects at the stimulus edges
 
 ```python
 import numpy as np
