@@ -37,8 +37,14 @@ yield identical results.
 Some additional notes:
 - when adding a class, always add the methods params(), _parameter_converter() and stimulus() for 
   generation and always add _param_dict_for_search() for search methods.
-- the parameters.py module has some untested elements in it, esp. the continuous sampling 
 - we stimuli are not accounted for potential aliasing effects at the stimulus edges
+- the parameters.py module has some untested elements in it, esp. the continuous sampling 
+- the search methods might be suitable for refactoring (moving methods to base class)
+- the parameter restrictions (bar width cannot be larger than bar length) in the bar stimulus class are not implemented 
+ideally. This becomes especially evident when using a search method: width = FiniteParameter([5.0, 12.0]) and 
+length = FiniteParameter([10.0, 18.0]) might not work together for the Bayesian search and definitely will not work for 
+the bruteforce search. Generally, whenever at least one parameter combination does not fulfill the parameter 
+restrictions, python throws errors. This should be dealt with in the future to improve the toolbox. 
 
 ```python
 import numpy as np
