@@ -787,8 +787,7 @@ class GaborSet(StimuliSet):
             contrasts: object from parameters.py module, defining the contrast of the image.
             orientations: object from parameters.py module, defining the orientation of grating relative to envelope.
             phases: object from parameters.py module, defining the phase offset of the grating.
-            gammas: object from parameters.py module, here: defining the eccentricities (not the spatial aspect ratio)
-                parameter of the envelope.
+            gammas: object from parameters.py module, defining the spatial aspect ratio parameter of the envelope.
             grey_levels: object from parameters.py module, defining the mean pixel intensity of the stimulus.
 
         Returns:
