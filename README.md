@@ -12,6 +12,11 @@ another argument (e.g. contrast) can be a fixed parameter. This search method be
 from parameters.py. The other search method is a bruteforce method. It only works when no input parameter is of type
 UniformRange. It will try out every parameter combination from the inputs and find that parameter combination, 
 which yields highest model activation. 
+The general recommendation is to use the bruteforce search, if the search is over a discrete range of parameter values,
+whereas the Bayesian search should be used if at least one parameter should be optimized over a continuous range of 
+values. More precisely, the bruteforce search will throw an error when trying to use it to solve continuous searching 
+tasks. For "finite searches", the bruteforce search is more accurate than the Bayesian search.
+
 
 Apart from the search methods, the major feature of this toolbox is to generate stimuli of all kinds. There
 are examples for every class below.
