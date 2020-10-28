@@ -249,7 +249,7 @@ class BarsSet(StimuliSet):
         # coordinate grid
         x, y = np.meshgrid(np.arange(self.canvas_size[0]) - location[0],
                            np.arange(self.canvas_size[1]) - location[1])
-        coords = np.stack([x.flatten(), y.flatten()])#.reshape((2,) + x.shape)
+        coords = np.stack([x.flatten(), y.flatten()])
 
         # rotation matrix
         R = np.array([[np.cos(np.pi - orientation), -np.sin(np.pi - orientation)],
@@ -619,7 +619,7 @@ class GaborSet(StimuliSet):
         if eccentricities is None:
             self.gammas = [1.0]  # default
         elif isinstance(eccentricities, list):
-            self.eccentricities = eccentricities
+            self.gammas = [1 - e ** 2 for e in eccentricities]
         else:
             if isinstance(eccentricities, FiniteSelection):
                 sample = eccentricities.sample()
