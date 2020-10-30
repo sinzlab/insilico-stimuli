@@ -293,3 +293,5 @@ for i, img in enumerate(plaid_grating.images()):
 ```
 ![readme_plaids_cg](https://user-images.githubusercontent.com/52453661/97460135-c93ecb80-193c-11eb-9313-62f6088978fe.JPG)
 
+# Search Methods
+https://github.com/Neuraldominator/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb
