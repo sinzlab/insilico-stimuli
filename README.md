@@ -38,8 +38,11 @@ creates plaid tuning curves in a toy experiment way.
 unit.
 - comparison_search_methods.ipynb is a notebook assessing whether the outcome of the two implemented search methods 
 yield identical results.
+- size_tuning_multisessions.ipynb is a notebook which adapted the bruteforce search method in a way that it can handle
+several data keys at once. It can be used to further develop the toolbox.
 
-Some additional notes:
+
+_Some additional notes_:
 - when adding a class, always add the methods params(), _parameter_converter() and stimulus() for 
   generation and always add _param_dict_for_search() for search methods.
 - we stimuli are not accounted for potential aliasing effects at the stimulus edges
@@ -50,6 +53,8 @@ ideally. This becomes especially evident when using a search method: width = Fin
 length = FiniteParameter([10.0, 18.0]) might not work together for the Bayesian search and definitely will not work for 
 the bruteforce search. Generally, whenever at least one parameter combination does not fulfill the parameter 
 restrictions, python throws errors. This should be dealt with in the future to improve the toolbox. 
+
+# Stimulus Generation Demo
 
 ```python
 import numpy as np
