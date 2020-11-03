@@ -47,12 +47,7 @@ _Some additional notes_:
   generation and always add _param_dict_for_search() for search methods.
 - we stimuli are not accounted for potential aliasing effects at the stimulus edges
 - the parameters.py module has some untested elements in it, esp. the continuous sampling 
-- the search methods might be suitable for refactoring (moving methods to base class)
-- the parameter restrictions (bar width cannot be larger than bar length) in the bar stimulus class are not implemented 
-ideally. This becomes especially evident when using a search method: width = FiniteParameter([5.0, 12.0]) and 
-length = FiniteParameter([10.0, 18.0]) might not work together for the Bayesian search and definitely will not work for 
-the bruteforce search. Generally, whenever at least one parameter combination does not fulfill the parameter 
-restrictions, python throws errors. This should be dealt with in the future to improve the toolbox. 
+- data type: float for all list elements when calling a class with objects from parameters.py
 
 # Stimulus Generation Demo
 
@@ -299,4 +294,92 @@ for i, img in enumerate(plaid_grating.images()):
 ![readme_plaids_cg](https://user-images.githubusercontent.com/52453661/97460135-c93ecb80-193c-11eb-9313-62f6088978fe.JPG)
 
 # Search Methods
-https://github.com/Neuraldominator/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb
+For a search over a finite set of parameter values (here: 547.200 parameter combinations), we can use the _bruteforce search method_:
+```python
+# loading model
+ensemble_hash = 'e7a8d0b961ee37ffda0779bfed95f1cf'
+model_key = (TrainedModel * TrainedEnsembleModel.Member() & dict(ensemble_hash=ensemble_hash)).fetch("KEY", limit=1, order_by="score DESC")
+model = TrainedModel().load_model(model_key, include_dataloader=False)
+model.eval()
+
+# model specifics for optimization
+data_key = '3631807112901'
+unit_idx = 27
+
+# Define the parameter set (finite)
+canvas_size         = [41, 41]
+sizes               = FiniteParameter([float(val) for val in range(5, 31)][::5])
+spatial_frequencies = FiniteParameter([float(val) for val in np.linspace(1/80, 2/5, 8)])
+contrasts           = FiniteParameter([1.0])
+orientations        = FiniteParameter([float(val) for val in np.linspace(0.0, np.pi, 10)])
+phases              = FiniteParameter([float(val) for val in np.linspace(0.0, 2*np.pi, 10)]) 
+grey_levels         = FiniteParameter([0.0])
+eccentricities      = FiniteParameter([float(val) for val in np.linspace(0.0, 0.99, 6)])
+locations           = FiniteParameter([[float(x), float(y)] for x in range(10, 30) 
+                                                            for y in range(10, 30)][::14])
+
+gabor_set = GaborSet(canvas_size=canvas_size,
+                     locations=locations,
+                     sizes=sizes,
+                     spatial_frequencies=spatial_frequencies,
+                     contrasts=contrasts,
+                     orientations=orientations, 
+                     phases=phases, 
+                     grey_levels=grey_levels,
+                     eccentricities=eccentricities)
+
+# run the optimization by evaluating all stimuli (and print the time it takes)
+start_time = time.time()
+params, _ , acts = gabor_set.find_optimal_stimulus_bruteforce(model=model, data_key=data_key, batch_size=100, return_activations=True)
+print("--- %s seconds ---" % (time.time() - start_time))
+```
+< print statement >
+
+```python
+print("optimal parameters: {}, activation:{}".format(params, acts))
+```
+< print statement >
+
+
+This is the resulting _optimal Gabor (bruteforce)_ stimulus:
+```python
+optGab = gabor_set.get_image_from_params(params)
+plt.imshow(optGab, cmap='gray', vmin=-1, vmax=1)
+plt.title('Best Gabor (BF), unit_idx:{}\nactivation:{}'.format(unit_idx, acts))
+```
+< plot >
+
+
+For comparison, this is what the _Bayesian search_ method finds here:
+```python
+# run the optimization by Bayesian search with 30 steps (and print the time it takes)
+start_time = time.time()
+params_Bayes, acts_Bayes = gabor_set.find_optimal_stimulus(model = model, 
+                        			                       data_key = data_key,
+                                    			           unit_idx = unit_idx,
+                                               			   total_trials = 30)
+print("--- %s seconds ---" % (time.time() - start_time))
+```
+![runtime_Bayes](https://user-images.githubusercontent.com/52453661/98012547-86c43580-1df9-11eb-9222-cd6c2ce45944.JPG)
+
+```python
+print("optimal parameters:\n{},\n\nactivation:\n{}".format(params_Bayes, acts_Bayes[0]['activation']))
+```
+![Bayes_print_params](https://user-images.githubusercontent.com/52453661/98012487-71e7a200-1df9-11eb-817b-dc9fc8a231fc.JPG)
+
+This is the resulting _optimal Gabor (Bayes)_ stimulus compared with the _optimal Gabor (BF)_:
+```python
+fig, axs = plt.subplots(1, 2)
+
+optGab = gabor_set.get_image_from_params(params)
+axs[0].imshow(optGab, cmap='gray', vmin=-1, vmax=1)
+axs[0].set_title('Best Gabor (BF), unit_idx:{}\nactivation:{}'.format(unit_idx, acts))
+
+optGab_Bayes = gabor_set.get_image_from_params(params_Bayes)
+axs[1].imshow(optGab_Bayes, cmap='gray', vmin=-1, vmax=1)
+axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}'.format(unit_idx, acts_Bayes))
+```
+< plot >
+
+
+A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/Neuraldominator/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
