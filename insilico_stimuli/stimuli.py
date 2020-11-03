@@ -801,8 +801,15 @@ class GaborSet(StimuliSet):
 
         param_dict = {}
         for arg_key in arg_dict:
-            # "finite case" -> 'type' = choice (more than one value) or 'type' = fixed (only one value)
+            # eccentricities/gammas should be a log_scale parameter, all others not.
+            if arg_key in ["gammas"]:
+                log_scale = True
+            else:
+                log_scale = False
+
+            # 1.) "finite case" -> 'type' = choice (more than one value) or 'type' = fixed (only one value)
             if isinstance(arg_dict[arg_key], FiniteParameter) or isinstance(arg_dict[arg_key], FiniteSelection):
+
                 # define the type configuration based on the number of list elements
                 if type(getattr(self, arg_key)) is list:
                     if len(getattr(self, arg_key)) > 1:
@@ -811,18 +818,21 @@ class GaborSet(StimuliSet):
                         name_type = "fixed"
 
                 if arg_key == 'locations':  # exception handling #1: locations
-                    # width
                     if name_type == "choice":
+                        # width
                         name_width = arg_key[:-1] + "_width"
                         param_dict[name_width] = {"name": name_width,
                                                   "type": name_type,
-                                                  "values": [float(loc[0]) for loc in getattr(self, arg_key)]}
+                                                  "values": [float(loc[0]) for loc in getattr(self, arg_key)],
+                                                  "log_scale": log_scale}
                         # height
                         name_height = arg_key[:-1] + "_height"
                         param_dict[name_height] = {"name": name_height,
                                                    "type": name_type,
-                                                   "values": [float(loc[1]) for loc in getattr(self, arg_key)]}
+                                                   "values": [float(loc[1]) for loc in getattr(self, arg_key)],
+                                                   "log_scale": log_scale}
                     elif name_type == "fixed":
+                        # width
                         name_width = arg_key[:-1] + "_width"
                         param_dict[name_width] = {"name": name_width,
                                                   "type": name_type,
@@ -837,7 +847,8 @@ class GaborSet(StimuliSet):
                     if name_type == "choice":
                         param_dict[name] = {"name": name,
                                             "type": name_type,
-                                            "values": getattr(self, arg_key)}
+                                            "values": getattr(self, arg_key),
+                                            "log_scale": log_scale}
                     elif name_type == "fixed":
                         param_dict[name] = {"name": name,
                                             "type": name_type,
@@ -847,13 +858,14 @@ class GaborSet(StimuliSet):
                     if name_type == "choice":
                         param_dict[name] = {"name": name,
                                             "type": name_type,
-                                            "values": getattr(self, arg_key)}
+                                            "values": getattr(self, arg_key),
+                                            "log_scale": log_scale}
                     elif name_type == "fixed":
                         param_dict[name] = {"name": name,
                                             "type": name_type,
                                             "value": getattr(self, arg_key)[0]}
 
-            # "infinite case" -> 'type' = range
+            # 2.) "infinite case" -> 'type' = range
             elif isinstance(arg_dict[arg_key], UniformRange):
                 if arg_key == 'locations':
                     range_name = arg_key + '_range'
@@ -861,24 +873,28 @@ class GaborSet(StimuliSet):
                     name_width = arg_key[:-1] + "_width"
                     param_dict[name_width] = {"name": name_width,
                                               "type": "range",
-                                              "bounds": getattr(self, range_name)[0]}
+                                              "bounds": getattr(self, range_name)[0],
+                                              "log_scale": log_scale}
                     # height
                     name_height = arg_key[:-1] + "_height"
                     param_dict[name_height] = {"name": name_height,
                                                "type": "range",
-                                               "bounds": getattr(self, range_name)[1]}
+                                               "bounds": getattr(self, range_name)[1],
+                                               "log_scale": log_scale}
                 elif arg_key == 'spatial_frequencies':
                     name = 'spatial_frequency'
                     range_name = arg_key + "_range"
                     param_dict[name] = {"name": name,
                                         "type": "range",
-                                        "bounds": getattr(self, range_name)}
+                                        "bounds": getattr(self, range_name),
+                                        "log_scale": log_scale}
                 else:
                     name = arg_key[:-1]
                     range_name = arg_key + "_range"
                     param_dict[name] = {"name": name,
                                         "type": "range",
-                                        "bounds": getattr(self, range_name)}
+                                        "bounds": getattr(self, range_name),
+                                        "log_scale": log_scale}
 
             if gammas is None:
                 param_dict['gamma'] = {'name': 'gamma',
