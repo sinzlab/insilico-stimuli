@@ -37,7 +37,8 @@ creates plaid tuning curves in a toy experiment way.
 - bar_endstopping_experiment.ipynb demonstrate the phenomenon of end-stopping in V1 neurons with one arbitrary model 
 unit.
 - comparison_search_methods.ipynb is a notebook assessing whether the outcome of the two implemented search methods 
-yield identical results.
+yield identical results. Also, it compares the MEIs from 28 model neurons with the optimal Gabors from the Bayesian 
+search and the bruteforce search.
 - size_tuning_multisessions.ipynb is a notebook which adapted the bruteforce search method in a way that it can handle
 several data keys at once. It can be used to further develop the toolbox.
 
@@ -45,9 +46,8 @@ several data keys at once. It can be used to further develop the toolbox.
 _Some additional notes_:
 - when adding a class, always add the methods params(), _parameter_converter() and stimulus() for 
   generation and always add _param_dict_for_search() for search methods.
-- we stimuli are not accounted for potential aliasing effects at the stimulus edges
-- the parameters.py module has some untested elements in it, esp. the continuous sampling 
-- data type: float for all list elements when calling a class with objects from parameters.py
+- the stimuli are not accounted for potential aliasing effects at the stimulus edges
+- data type needs to be `float` for all list elements when calling a class with objects from parameters.py
 
 # Stimulus Generation Demo
 
@@ -382,4 +382,4 @@ axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}'.format(unit_id
 < plot >
 
 
-A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/Neuraldominator/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
+A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/sinzlab/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
