@@ -7,10 +7,10 @@ center surrounds, plaids from circular gratings.
 Except from the two plaid classes, all stimulus classes have implemented search methods. One search method is based on 
 an optimizer by ax-platform, which looks for optimal parameters via Bayesian search. You can specify the number of 
 optimization loops, it should perform. The optimizer can deal with hybrid parameter combinations, 
-meaning one argument (e.g. spatial frequencies) can be a continuous parameter within a given range while
-another argument (e.g. contrast) can be a fixed parameter. This search method becomes active if inputs are objects
-from parameters.py. The other search method is a bruteforce method. It only works when no input parameter is of type
-UniformRange. It will try out every parameter combination from the inputs and find that parameter combination, 
+meaning one argument (e.g. `spatial_frequencies`) can be a continuous parameter within a given range while
+another argument (e.g. `contrasts`) can be a fixed parameter. This search method becomes active if inputs are objects
+from `parameters.py`. The other search method is a bruteforce method. It only works when no input parameter is of type
+`UniformRange`. It will try out every parameter combination from the inputs and find that parameter combination, 
 which yields highest model activation. 
 The general recommendation is to use the bruteforce search, if the search is over a discrete range of parameter values,
 whereas the Bayesian search should be used if at least one parameter should be optimized over a continuous range of 
@@ -24,22 +24,22 @@ are examples for every class below.
 Files in this folder:
 
 ++++ insilico_stimuli ++++
-- parameters.py defines the object types that the stimulus arguments can take on.
-- stimuli.py defines the stimulus classes with its generation and search methods
+- `parameters.py` defines the object types that the stimulus arguments can take on.
+- `stimuli.py` defines the stimulus classes with its generation and search methods
 
 ++++ notebooks ++++
-- stimuli_examples.ipynb features examples of all stimulus class for all kinds of class configurations. It can be seen 
+- `stimuli_examples.ipynb` features examples of all stimulus class for all kinds of class configurations. It can be seen 
 as a more detailed version of the examples (see below) given in this readme file. 
-- size_tuning_experiment.ipynb is an example notebook how this toolbox could be used when conducting a size tuning 
+- `size_tuning_experiment.ipynb` is an example notebook how this toolbox could be used when conducting a size tuning 
 experiment 
-- plaids_tuning_experiment.ipynb is a notebook which conducts orientation tuning and contrast tuning experiments and 
+- `plaids_tuning_experiment.ipynb` is a notebook which conducts orientation tuning and contrast tuning experiments and 
 creates plaid tuning curves in a toy experiment way.
-- bar_endstopping_experiment.ipynb demonstrate the phenomenon of end-stopping in V1 neurons with one arbitrary model 
+- `bar_endstopping_experiment.ipynb` demonstrate the phenomenon of end-stopping in V1 neurons with one arbitrary model 
 unit.
-- comparison_search_methods.ipynb is a notebook assessing whether the outcome of the two implemented search methods 
+- `comparison_search_methods.ipynb` is a notebook assessing whether the outcome of the two implemented search methods 
 yield identical results. Also, it compares the MEIs from 28 model neurons with the optimal Gabors from the Bayesian 
 search and the bruteforce search.
-- size_tuning_multisessions.ipynb is a notebook which adapted the bruteforce search method in a way that it can handle
+- `size_tuning_multisessions.ipynb` is a notebook which adapted the bruteforce search method in a way that it can handle
 several data keys at once. It can be used to further develop the toolbox.
 
 
@@ -47,7 +47,7 @@ _Some additional notes_:
 - when adding a class, always add the methods `params()`, `_parameter_converter()` and `stimulus()` for 
   generation and always add `_param_dict_for_search()` for search methods.
 - the stimuli are not accounted for potential aliasing effects at the stimulus edges
-- data type needs to be `float` for all list elements when calling a class with objects from parameters.py
+- data type needs to be `float` for all list elements when calling a class with objects from `parameters.py`
 
 # Stimulus Generation Demo
 
