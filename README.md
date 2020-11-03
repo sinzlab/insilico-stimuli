@@ -44,8 +44,8 @@ several data keys at once. It can be used to further develop the toolbox.
 
 
 _Some additional notes_:
-- when adding a class, always add the methods params(), _parameter_converter() and stimulus() for 
-  generation and always add _param_dict_for_search() for search methods.
+- when adding a class, always add the methods `params()`, `_parameter_converter()` and `stimulus()` for 
+  generation and always add `_param_dict_for_search()` for search methods.
 - the stimuli are not accounted for potential aliasing effects at the stimulus edges
 - data type needs to be `float` for all list elements when calling a class with objects from parameters.py
 
