@@ -43,6 +43,10 @@ class FiniteParameter(Parameter):
             val (list or int or float): defines the parameter values.
         """
         self.values = val
+        if isinstance(val, list):
+            if len(val) > 1:
+                self.low = min(val)
+                self.high = max(val)
 
     @property
     def values(self):
@@ -59,6 +63,8 @@ class FiniteParameter(Parameter):
         else:
             raise TypeError('val must be either of type list, float or int.')
 
+    def sample(self):
+        raise NotImplementedError('sample method not supported for objects of type FiniteParameter.')
 
 class FiniteSelection(FiniteParameter):
     """ Subclass of FiniteParameter which can draw random samples from a given finite set of parameter values. """
