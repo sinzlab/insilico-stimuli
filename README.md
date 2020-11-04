@@ -41,6 +41,7 @@ yield identical results. Also, it compares the MEIs from 28 model neurons with t
 search and the bruteforce search.
 - `size_tuning_multisessions.ipynb` is a notebook which adapted the bruteforce search method in a way that it can handle
 several data keys at once. It can be used to further develop the toolbox.
+- `parameters_examples.ipynb` is a demo notebook for the `parameters.py` module.
 
 
 _Some additional notes_:
