@@ -345,7 +345,7 @@ runtime: about 2 days. However, we get the optimal Gabors for all 28 neurons of 
 
 
 ```python
-print("optimal parameters: {}, activation:{}".format(params, acts))
+print("optimal parameters: {}, activation:{}".format(params[unit_idx], acts[unit_idx]))
 ```
 ![BF_print_params](https://user-images.githubusercontent.com/52453661/98253637-953a5a80-1f7b-11eb-94aa-06ed270daaad.JPG)
 
@@ -378,6 +378,8 @@ print("optimal parameters:\n{},\n\nactivation:\n{}".format(params_Bayes, acts_Ba
 ```
 ![Bayes_print_params_originalset](https://user-images.githubusercontent.com/52453661/98254909-2100b680-1f7d-11eb-9427-ed42830e6cc5.JPG)
 
+This is the resulting _optimal Gabor (Bayes)_ stimulus compared with the _optimal Gabor (BF)_:
+
 ```python
 fig, axs = plt.subplots(1, 2)
 
@@ -395,8 +397,9 @@ fig.tight_layout()
 
 Here, we can see that the Gabors and their activations deviate quite a bit. Let us make the parameter set a bit larger
 (from 245,760 to 547,200 combinations), i.e. we include more possible parameter combinations into the class 
-instantiation. We only do run this for the Bayesian case since the bruteforce takes very long. Hence, it is not straight
-forward how to compare the resulting Gabors. We are using the following parameter values:
+instantiation. We only run this for the Bayesian case since the bruteforce takes very long. Hence, it is not straight
+forward to compare the resulting Gabor with the previously computed bruteforce Gabor. We are using the following 
+parameter values:
 
 ```python
 canvas_size         = [41, 41]
