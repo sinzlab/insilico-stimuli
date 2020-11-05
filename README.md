@@ -312,12 +312,12 @@ canvas_size         = [41, 41]
 sizes               = FiniteParameter([float(val) for val in range(5, 31)][::5])
 spatial_frequencies = FiniteParameter([float(val) for val in np.linspace(1/80, 2/5, 8)])
 contrasts           = FiniteParameter([1.0])
-orientations        = FiniteParameter([float(val) for val in np.linspace(0.0, np.pi, 10)])
-phases              = FiniteParameter([float(val) for val in np.linspace(0.0, 2*np.pi, 10)]) 
+orientations        = FiniteParameter([float(val) for val in np.linspace(0.0, np.pi, 8)])
+phases              = FiniteParameter([float(val) for val in np.linspace(0.0, 2*np.pi, 8)]) 
 grey_levels         = FiniteParameter([0.0])
-eccentricities      = FiniteParameter([float(val) for val in np.linspace(0.0, 0.99, 6)])
-locations           = FiniteParameter([[float(x), float(y)] for x in range(10, 30) 
-                                                            for y in range(10, 30)][::14])
+eccentricities      = FiniteParameter([float(val) for val in np.linspace(0.0, 0.99, 5)])
+locations           = FiniteParameter([[float(x), float(y)] for x in range(12, 28) 
+                                                            for y in range(12, 28)][::16])
 
 gabor_set = GaborSet(canvas_size=canvas_size,
                      locations=locations,
@@ -329,26 +329,34 @@ gabor_set = GaborSet(canvas_size=canvas_size,
                      grey_levels=grey_levels,
                      eccentricities=eccentricities)
 
+print(np.prod(gabor_set.num_params()))  # number of parameter combinations
+```
+![num_param_comb](https://user-images.githubusercontent.com/52453661/98254333-738da300-1f7c-11eb-8912-ff3995ced381.JPG)
+
+
+```python
 # run the optimization by evaluating all stimuli (and print the time it takes)
 start_time = time.time()
-params, _ , acts = gabor_set.find_optimal_stimulus_bruteforce(model=model, data_key=data_key, batch_size=100, return_activations=True)
+params, _ , acts = gabor_set.find_optimal_stimulus_bruteforce(model=model, 
+data_key=data_key, batch_size=100, return_activations=True)
 print("--- %s seconds ---" % (time.time() - start_time))
 ```
-< print statement >
+runtime: about 2 days. However, we get the optimal Gabors for all 28 neurons of the given `data_key`.
+
 
 ```python
 print("optimal parameters: {}, activation:{}".format(params, acts))
 ```
-< print statement >
+![BF_print_params](https://user-images.githubusercontent.com/52453661/98253637-953a5a80-1f7b-11eb-94aa-06ed270daaad.JPG)
 
 
 This is the resulting _optimal Gabor (bruteforce)_ stimulus:
 ```python
-optGab = gabor_set.get_image_from_params(params)
+optGab = gabor_set.stimulus(**params[unit_idx])
 plt.imshow(optGab, cmap='gray', vmin=-1, vmax=1)
-plt.title('Best Gabor (BF), unit_idx:{}\nactivation:{}'.format(unit_idx, acts))
+plt.title('Best Gabor (BF), unit_idx:{}\nactivation:{}'.format(unit_idx, round(acts[unit_idx], 3)))
 ```
-< plot >
+![optGab_image_BF](https://user-images.githubusercontent.com/52453661/98253979-024df000-1f7c-11eb-909f-41864657f97d.JPG)
 
 
 For comparison, this is what the _Bayesian search_ method finds here:
@@ -361,6 +369,50 @@ params_Bayes, acts_Bayes = gabor_set.find_optimal_stimulus(model = model,
                                                			   total_trials = 30)
 print("--- %s seconds ---" % (time.time() - start_time))
 ```
+![runtime_v2_bayes](https://user-images.githubusercontent.com/52453661/98254447-98821600-1f7c-11eb-83dc-0de2be56a11f.JPG)
+
+Note that during these 29 seconds, we only found a candidate for an optimal Gabor for one model neuron!
+
+```python
+print("optimal parameters:\n{},\n\nactivation:\n{}".format(params_Bayes, acts_Bayes[0]['activation']))
+```
+![Bayes_print_params_originalset](https://user-images.githubusercontent.com/52453661/98254909-2100b680-1f7d-11eb-9427-ed42830e6cc5.JPG)
+
+```python
+fig, axs = plt.subplots(1, 2)
+
+optGab = gabor_set.stimulus(**params[unit_idx])
+axs[0].imshow(optGab, cmap='gray', vmin=-1, vmax=1)
+axs[0].set_title('Best Gabor (BF), unit_idx:{}\nactivation:{}\noriginal parameter set'.format(unit_idx, round(acts[unit_idx], 3)))
+
+optGab_Bayes = gabor_set.get_image_from_params(params_Bayes)
+axs[1].imshow(optGab_Bayes, cmap='gray', vmin=-1, vmax=1)
+axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}\noriginal parameter set'.format(unit_idx, round(acts_Bayes[0]['activation'], 3)))
+
+fig.tight_layout()
+```
+![compare_v1_BF_vs_v1_bayes](https://user-images.githubusercontent.com/52453661/98255309-8fde0f80-1f7d-11eb-8346-554bb23a6680.JPG)
+
+Here, we can see that the Gabors and their activations deviate quite a bit. Let us make the parameter set a bit larger, 
+i.e. we include more possible parameter combinations into the class instantiation. We only do run this for the Bayesian
+case since the bruteforce takes very long. Hence, it is not straight forward how to compare the resulting Gabors.
+We are using the following parameter values:
+```python
+canvas_size         = [41, 41]
+sizes               = FiniteParameter([float(val) for val in range(5, 31)][::5])
+spatial_frequencies = FiniteParameter([float(val) for val in np.linspace(1/80, 2/5, 8)])
+contrasts           = FiniteParameter([1.0])
+orientations        = FiniteParameter([float(val) for val in np.linspace(0.0, np.pi, 10)])
+phases              = FiniteParameter([float(val) for val in np.linspace(0.0, 2*np.pi, 10)]) 
+grey_levels         = FiniteParameter([0.0])
+eccentricities      = FiniteParameter([float(val) for val in np.linspace(0.0, 0.99, 6)])
+locations           = FiniteParameter([[float(x), float(y)] for x in range(10, 30) 
+                                                            for y in range(10, 30)][::14])
+```
+
+After re-running the Bayesian optimization for the model neuron with `unit_idx=27` again, we get the following
+optimal parameters:
+
 ![runtime_Bayes](https://user-images.githubusercontent.com/52453661/98012547-86c43580-1df9-11eb-9222-cd6c2ce45944.JPG)
 
 ```python
@@ -368,19 +420,28 @@ print("optimal parameters:\n{},\n\nactivation:\n{}".format(params_Bayes, acts_Ba
 ```
 ![Bayes_print_params](https://user-images.githubusercontent.com/52453661/98012487-71e7a200-1df9-11eb-817b-dc9fc8a231fc.JPG)
 
+Let's compare the optimal Gabor from the Bayesian search of the slightly larger parameter set to the optimal Gabor from 
+the bruteforce method on the original parameter set:
+
 This is the resulting _optimal Gabor (Bayes)_ stimulus compared with the _optimal Gabor (BF)_:
 ```python
 fig, axs = plt.subplots(1, 2)
 
-optGab = gabor_set.get_image_from_params(params)
+optGab = gabor_set.stimulus(**params[unit_idx])
 axs[0].imshow(optGab, cmap='gray', vmin=-1, vmax=1)
-axs[0].set_title('Best Gabor (BF), unit_idx:{}\nactivation:{}'.format(unit_idx, acts))
+axs[0].set_title('Best Gabor (BF), unit_idx:{}\nactivation:{}\noriginal parameter set'.format(unit_idx, round(acts[unit_idx], 3)))
 
 optGab_Bayes = gabor_set.get_image_from_params(params_Bayes)
 axs[1].imshow(optGab_Bayes, cmap='gray', vmin=-1, vmax=1)
-axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}'.format(unit_idx, acts_Bayes))
+axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}\noriginal parameter set'.format(unit_idx, round(acts_Bayes[0]['activation'], 3)))
+fig.tight_layout()
 ```
-< plot >
+![compare_v1_BF_vs_v2_bayes](https://user-images.githubusercontent.com/52453661/98256808-4d1d3700-1f7f-11eb-8a4c-b9221fa8af7a.JPG)
 
+Generally, when we want to find the optimal stimulus over a finite set, which is sufficiently small, the bruteforce 
+method `find_optimal_stimulus_bruteforce` reliably finds the actual best stimulus. However, this optimization is 
+expensive in terms of runtime. The Bayesian search `find_optimal_stimulus` does not necessarily find the same optimal
+stimulus than the bruteforce method, for a finite grid-like parameter search. When optimizing over a infinite set of 
+parameter combinations, the Bayesian method is the way to go.
 
 A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/sinzlab/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
