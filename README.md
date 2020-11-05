@@ -295,7 +295,8 @@ for i, img in enumerate(plaid_grating.images()):
 ![readme_plaids_cg](https://user-images.githubusercontent.com/52453661/97460135-c93ecb80-193c-11eb-9313-62f6088978fe.JPG)
 
 # Search Methods
-For a search over a finite set of parameter values (here: 245,760 parameter combinations), we can use the _bruteforce search method_:
+For a search over a finite set of parameter values (here: 245,760 parameter combinations), we can use the _bruteforce 
+search method_:
 ```python
 # loading model
 ensemble_hash = 'e7a8d0b961ee37ffda0779bfed95f1cf'
@@ -337,8 +338,7 @@ print(np.prod(gabor_set.num_params()))  # number of parameter combinations
 ```python
 # run the optimization by evaluating all stimuli (and print the time it takes)
 start_time = time.time()
-params, _ , acts = gabor_set.find_optimal_stimulus_bruteforce(model=model, 
-data_key=data_key, batch_size=100, return_activations=True)
+params, _ , acts = gabor_set.find_optimal_stimulus_bruteforce(model=model, data_key=data_key, batch_size=100, return_activations=True)
 print("--- %s seconds ---" % (time.time() - start_time))
 ```
 runtime: about 2 days. However, we get the optimal Gabors for all 28 neurons of the given `data_key`.
@@ -363,10 +363,7 @@ For comparison, this is what the _Bayesian search_ method finds here:
 ```python
 # run the optimization by Bayesian search with 30 steps (and print the time it takes)
 start_time = time.time()
-params_Bayes, acts_Bayes = gabor_set.find_optimal_stimulus(model = model, 
-                        			                       data_key = data_key,
-                                    			           unit_idx = unit_idx,
-                                               			   total_trials = 30)
+params_Bayes, acts_Bayes = gabor_set.find_optimal_stimulus(model = model, data_key = data_key, unit_idx = unit_idx, total_trials = 30)
 print("--- %s seconds ---" % (time.time() - start_time))
 ```
 ![runtime_v2_bayes](https://user-images.githubusercontent.com/52453661/98254447-98821600-1f7c-11eb-83dc-0de2be56a11f.JPG)
