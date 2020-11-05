@@ -295,7 +295,7 @@ for i, img in enumerate(plaid_grating.images()):
 ![readme_plaids_cg](https://user-images.githubusercontent.com/52453661/97460135-c93ecb80-193c-11eb-9313-62f6088978fe.JPG)
 
 # Search Methods
-For a search over a finite set of parameter values (here: 547.200 parameter combinations), we can use the _bruteforce search method_:
+For a search over a finite set of parameter values (here: 245,760 parameter combinations), we can use the _bruteforce search method_:
 ```python
 # loading model
 ensemble_hash = 'e7a8d0b961ee37ffda0779bfed95f1cf'
@@ -393,10 +393,11 @@ fig.tight_layout()
 ```
 ![compare_v1_BF_vs_v1_bayes](https://user-images.githubusercontent.com/52453661/98255309-8fde0f80-1f7d-11eb-8346-554bb23a6680.JPG)
 
-Here, we can see that the Gabors and their activations deviate quite a bit. Let us make the parameter set a bit larger, 
-i.e. we include more possible parameter combinations into the class instantiation. We only do run this for the Bayesian
-case since the bruteforce takes very long. Hence, it is not straight forward how to compare the resulting Gabors.
-We are using the following parameter values:
+Here, we can see that the Gabors and their activations deviate quite a bit. Let us make the parameter set a bit larger
+(from 245,760 to 547,200 combinations), i.e. we include more possible parameter combinations into the class 
+instantiation. We only do run this for the Bayesian case since the bruteforce takes very long. Hence, it is not straight
+forward how to compare the resulting Gabors. We are using the following parameter values:
+
 ```python
 canvas_size         = [41, 41]
 sizes               = FiniteParameter([float(val) for val in range(5, 31)][::5])
