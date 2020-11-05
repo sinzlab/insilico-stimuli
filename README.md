@@ -434,15 +434,15 @@ axs[0].set_title('Best Gabor (BF), unit_idx:{}\nactivation:{}\noriginal paramete
 
 optGab_Bayes = gabor_set.get_image_from_params(params_Bayes)
 axs[1].imshow(optGab_Bayes, cmap='gray', vmin=-1, vmax=1)
-axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}\noriginal parameter set'.format(unit_idx, round(acts_Bayes[0]['activation'], 3)))
+axs[1].set_title('Best Gabor (Bayes), unit_idx:{}\nactivation:{}\nlarger parameter set'.format(unit_idx, round(acts_Bayes[0]['activation'], 3)))
 fig.tight_layout()
 ```
 ![compare_v1_BF_vs_v2_bayes](https://user-images.githubusercontent.com/52453661/98256808-4d1d3700-1f7f-11eb-8a4c-b9221fa8af7a.JPG)
 
 Generally, when we want to find the optimal stimulus over a finite set, which is sufficiently small, the bruteforce 
-method `find_optimal_stimulus_bruteforce` reliably finds the actual best stimulus. However, this optimization is 
-expensive in terms of runtime. The Bayesian search `find_optimal_stimulus` does not necessarily find the same optimal
-stimulus than the bruteforce method, for a finite grid-like parameter search. When optimizing over a infinite set of 
-parameter combinations, the Bayesian method is the way to go.
+method `find_optimal_stimulus_bruteforce` reliably finds the actual best stimulus. However, this optimization may be 
+expensive in terms of runtime. The Bayesian search `find_optimal_stimulus` does not necessarily find the optimal
+stimulus (see above for the finite grid-like parameter search). Nonetheless, the `spatial_frequency` and the `orientation`
+match quite well! When optimizing over a infinite set of parameter combinations, the Bayesian method is the way to go.
 
 A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/sinzlab/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
