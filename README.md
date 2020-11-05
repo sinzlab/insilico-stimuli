@@ -36,6 +36,8 @@ search and the bruteforce search.
 - `parameters_examples.ipynb` is a demo notebook for the `parameters.py` module.
 - `plaids_tuning_experiment.ipynb` is a notebook which conducts orientation tuning and contrast tuning experiments and 
 creates plaid tuning curves in a toy experiment way.
+- `readme_notebook.ipynb` is the notebook which the examples below are based on. It can be used to explore the toolbox 
+further.
 - `size_tuning_experiment.ipynb` is an example notebook how this toolbox could be used when conducting a size tuning 
 experiment 
 - `size_tuning_multisessions.ipynb` is a notebook which adapted the bruteforce search method in a way that it can handle
