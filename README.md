@@ -447,4 +447,4 @@ expensive in terms of runtime. The Bayesian search `find_optimal_stimulus` does 
 stimulus (see above for the finite grid-like parameter search). Nonetheless, the `spatial_frequency` and the `orientation`
 match quite well! When optimizing over a infinite set of parameter combinations, the Bayesian method is the way to go.
 
-A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/sinzlab/insilico-stimuli/blob/Parameter_extension/notebooks/stimuli_examples.ipynb).
+A detailed demo notebook can be found in the notebooks folder, [here](https://github.com/sinzlab/insilico-stimuli/notebooks/stimuli_examples.ipynb).
