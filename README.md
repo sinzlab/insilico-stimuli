@@ -23,11 +23,11 @@ are examples for every class below.
 
 Files in this folder:
 
-++++ insilico_stimuli ++++
+**_insilico_stimuli:_**
 - `parameters.py` defines the object types that the stimulus arguments can take on.
 - `stimuli.py` defines the stimulus classes with its generation and search methods
 
-++++ notebooks ++++
+**_notebooks:_**
 - `bar_endstopping_experiment.ipynb` demonstrate the phenomenon of end-stopping in V1 neurons with one arbitrary model 
 unit.
 - `comparison_search_methods.ipynb` is a notebook assessing whether the outcome of the two implemented search methods 
