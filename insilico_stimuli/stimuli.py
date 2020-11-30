@@ -1029,7 +1029,8 @@ class GaborSet(StimuliSet):
             new_max_activations = activations_batch.T[range(len(new_max_idx)), new_max_idx]
 
             argmax_activations[new_max_activations > max_activations] = new_max_idx[
-                                                                 new_max_activations > max_activations] + batch_size * batch_idx
+                                                                 new_max_activations > max_activations]\
+                                                                        + batch_size * batch_idx
             max_activations[new_max_activations > max_activations] = new_max_activations[
                 new_max_activations > max_activations]
 
