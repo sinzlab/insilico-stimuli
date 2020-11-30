@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 from insilico_stimuli.parameters import *
 
+from tqdm import tqdm
 
 class StimuliSet:
     """
@@ -973,8 +974,8 @@ class GaborSet(StimuliSet):
                                              total_trials=total_trials)
         return best_params, values
 
-    def find_optimal_stimulus_bruteforce(self, model, data_key, batch_size=100, return_activations=False, unit_idx=None,
-                                         plotflag=False):
+    def find_optimal_stimulus_bruteforce(self, model, data_key, batch_size=100, unit_idx=None,
+                                         plotflag=False, cuda=False):
         """
         Finds optimal parameter combination for all units based on brute force testing method.
 
@@ -982,7 +983,6 @@ class GaborSet(StimuliSet):
             model (Encoder): The evaluated model as an encoder class.
             data_key (char): data key or session ID of model.
             batch_size (int or optional): number of images per batch.
-            return_activations (bool or None): return maximal activation alongside its parameter combination
             unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
                 parameters for all model neurons (advised, because search is done for all units anyway).
             plotflag (bool or None): if True, plots the evolution of the maximal activation of the number of images
@@ -999,10 +999,12 @@ class GaborSet(StimuliSet):
         n_units = model.readout[data_key].outdims  # number of units
 
         max_act_evo = np.zeros((n_images + 1, n_units))  # init storage of maximal activation evolution
-        activations = np.zeros(n_units)  # init activation array for all tested images
+
+        argmax_activations = np.zeros(n_units).astype(int)
+        max_activations = np.zeros(n_units)
 
         # divide set of images in batches before showing it to the model
-        for batch_idx, batch in enumerate(self.image_batches(batch_size)):
+        for batch_idx, batch in tqdm(enumerate(self.image_batches(batch_size)), total=n_images//batch_size):
 
             if batch.shape[0] != batch_size:
                 batch_size = batch.shape[0]
@@ -1010,8 +1012,12 @@ class GaborSet(StimuliSet):
             # create images and compute activation for current batch
             images_batch = batch.reshape((batch_size,) + tuple(self.canvas_size))
             images_batch = np.expand_dims(images_batch, axis=1)
-            images_batch = torch.tensor(images_batch).float()
-            activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
+            if cuda:
+                images_batch = torch.tensor(images_batch).cuda().float()
+                activations_batch = model(images_batch, data_key=data_key).detach().cpu().numpy().squeeze()
+            else:
+                images_batch = torch.tensor(images_batch).float()
+                activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
 
             if plotflag:  # evolution of maximal activation
                 for unit in range(0, n_units):
@@ -1019,17 +1025,13 @@ class GaborSet(StimuliSet):
                         i = (idx + 1) + batch_idx * batch_size
                         max_act_evo[i, unit] = max(act[unit], max_act_evo[i - 1, unit])
 
-            # max and argmax for current batch
-            activations = np.vstack([activations, activations_batch])
+            new_max_idx = activations_batch.argmax(0)
+            new_max_activations = activations_batch.T[range(len(new_max_idx)), new_max_idx]
 
-        # delete the first row (only zeros) by which we initialized
-        activations = np.delete(activations, 0, axis=0)
-
-        # get maximal activations for each unit
-        max_activations = np.amax(activations, axis=0)
-
-        # get the image index of the maximal activations
-        argmax_activations = np.argmax(activations, axis=0)
+            argmax_activations[new_max_activations > max_activations] = new_max_idx[
+                                                                 new_max_activations > max_activations] + batch_size * batch_idx
+            max_activations[new_max_activations > max_activations] = new_max_activations[
+                new_max_activations > max_activations]
 
         params = [None] * n_units  # init list with parameter dictionaries
         for unit, opt_param_idx in enumerate(argmax_activations):
@@ -1045,15 +1047,9 @@ class GaborSet(StimuliSet):
 
         # catch return options
         if unit_idx is not None:
-            if return_activations:
-                return params[unit_idx], activations[unit_idx], max_activations[unit_idx]
-            else:
-                return params[unit_idx], activations[unit_idx]
+            return params[unit_idx], max_activations[unit_idx]
         else:
-            if return_activations:
-                return params, activations, max_activations
-            else:
-                return params, activations
+            return params, max_activations
 
 
 class PlaidsGaborSet(GaborSet):
