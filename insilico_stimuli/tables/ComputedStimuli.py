@@ -1,14 +1,12 @@
 """This module contains mix-ins for the main tables and table templates."""
 
 from __future__ import annotations
-import os
-import tempfile
-from typing import Callable, Mapping, Optional, Dict, Any
-from string import ascii_letters
-from random import choice
 
-import torch
-from torch.nn import Module
+import datajoint as dj
+import numpy as np
+
+from typing import Callable, Mapping, Dict, Any
+
 from torch.utils.data import DataLoader
 
 from nnfabrik.utility.dj_helpers import make_hash
@@ -45,32 +43,83 @@ class StimuliMethodMixin:
             )
         )
 
-    def generate_stimuli(self, dataloaders: Dataloaders, model: Module, key: Key) -> Dict[str, Any]:
+    def parse_method_config(self, method_config):
+        """
+        Parsing of the method config attributes
+        expecting it to be of the format
+        {
+            attributes: {
+                attr1: {
+                    path: path_to_function,
+                    args: list_of_arguments (optional),
+                    kwargs: dict_of_keyword_arguments (optional)
+                }
+            },
+            process_fn: {
+                path: path_to_processing_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
+            }
+        }
+        """
+        attributes = method_config['attributes']
+
+        for key, value in attributes.items():
+            if 'path' not in value:
+                attributes[key] = value['args']
+                continue
+
+            attr_fn = self.import_func(value['path'])
+
+            if not 'args' in value:
+                value['args'] = []
+            if not 'kwargs' in value:
+                value['kwargs'] = {}
+
+            attr = attr_fn(*value['args'], **value['kwargs'])
+            attributes[key] = attr
+
+        return method_config
+
+    def generate_stimuli(self, key: Key) -> np.ndarray:
+        """
+        Returns the stimuli images given the method config.
+        """
         method_fn, method_config = (self & key).fetch1("method_fn", "method_config")
         method_fn = self.import_func(method_fn)
-        stimuli, score, output = method_fn(dataloaders, model, method_config)
-        return dict(key, stimuli=stimuli, score=score, output=output)
+
+        method_config = self.parse_method_config(method_config)
+
+        stimuli_set = method_fn(method_config['attributes'])
+
+        return stimuli_set.images()
 
 class ComputedStimuliTemplateMixin:
     definition = """
     # contains optimal stimuli
     -> self.method_table
     -> self.trained_model_table
-    -> self.selector_table
     ---
-    stimuli             : attach@minio  # the stimuli as a tensor
-    score               : float         # some score depending on the used method function
-    output              : attach@minio  # object returned by the method function
+    stimuli             : longblob      # the stimuli parameters
+    average_score       : float        # average score depending on the used method function
     """
 
     trained_model_table = None
-    selector_table = None
     method_table = None
+    unit_table = None
+
     model_loader_class = integration.ModelLoader
-    save = staticmethod(torch.save)
-    get_temp_dir = tempfile.TemporaryDirectory
 
     insert1: Callable[[Mapping], None]
+
+    class Units(dj.Part):
+        definition = """
+        # Scores for Individual Neurons
+        -> master
+        -> master.unit_table
+        ---
+        score           : float
+        """
 
     def __init__(self, *args, cache_size_limit: int = 10, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,24 +127,36 @@ class ComputedStimuliTemplateMixin:
 
     def make(self, key: Key) -> None:
         dataloaders, model = self.model_loader.load(key=key)
-        output_selected_model = self.selector_table().get_output_selected_model(model, key)
-        stimuli_entity = self.method_table().generate_stimuli(dataloaders, output_selected_model, key)
-        self._insert_stimuli(stimuli_entity)
 
-    def _insert_stimuli(self, stimuli_entity: Dict[str, Any]) -> None:
-        """Saves the stimuli to a temporary directory and inserts the prepared entity into the table."""
-        with self.get_temp_dir() as temp_dir:
-            for name in ("stimuli", "output"):
-                self._save_to_disk(stimuli_entity, temp_dir, name)
-            self.insert1(stimuli_entity)
+        method = self.method_table()
+        method_config = method.parse_method_config(key['method_config'])
 
-    def _save_to_disk(self, stimuli_entity: Dict[str, Any], temp_dir: str, name: str) -> None:
-        data = stimuli_entity.pop(name)
-        filename = name + "_" + self._create_random_filename() + ".pth.tar"
-        filepath = os.path.join(temp_dir, filename)
-        self.save(data, filepath)
-        stimuli_entity[name] = filepath
+        proccess_fn = method.import_func(method_config['process_fn']['path'])
 
-    @staticmethod
-    def _create_random_filename(length: Optional[int] = 32) -> str:
-        return "".join(choice(ascii_letters) for _ in range(length))
+        if not 'args' in method_config['process_fn']:
+            method_config['process_fn']['args'] = []
+        if not 'kwargs' in method_config['process_fn']:
+            method_config['process_fn']['kwargs'] = {}
+
+        stimuli_entities = proccess_fn(
+            method(method_config['attributes'],
+            model,
+            key['data_key'],
+            *method_config['process_fn']['args'],
+            **method_config['process_fn']['kwargs']
+        ))
+
+        self.insert1(key, ignore_extra_fields=True)
+
+        for unit_index, stimuli_entity in enumerate(stimuli_entities):
+            if "unit_id" in key: key.pop("unit_id")
+            if "unit_type" in key: key.pop("unit_type")
+
+            unit_key = dict(unit_index=unit_index, data_key=key['data_key'])
+            unit_type = ((self.unit_table & key) & unit_key).fetch1("unit_type")
+            unit_id = ((self.unit_table & key) & unit_key).fetch1("unit_id")
+
+            stimuli_entity["unit_id"] = unit_id
+            stimuli_entity["unit_type"] = unit_type
+
+            self.Units.insert1(stimuli_entity, ignore_extra_fields=True)
