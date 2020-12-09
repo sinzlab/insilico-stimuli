@@ -16,57 +16,54 @@ from . import integration
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
 
-class StimuliMethodMixin:
+class StimuliSetsMixin:
     definition = """
-    # contains methods for finding Stimuli and their configurations.
-    method_fn                           : varchar(64)   # name of the method function
-    method_hash                         : varchar(32)   # hash of the method config
+    # contains stimuli sets and their configurations.
+    set_fn                           : varchar(64)   # name of the set function
+    set_hash                         : varchar(32)   # hash of the set config
     ---
-    method_config                       : longblob      # method configuration object
-    method_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
-    method_comment                      : varchar(256)  # a short comment describing the method
+    set_config                       : longblob      # set configuration object
+    set_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
+    set_comment                      : varchar(256)  # a short comment describing the set
     """
 
     insert1: Callable[[Mapping], None]
-    __and__: Callable[[Mapping], StimuliMethodMixin]
+    __and__: Callable[[Mapping], StimuliSetsMixin]
     fetch1: Callable
 
     import_func = staticmethod(integration.import_module)
 
-    def add_method(self, method_fn: str, method_config: Mapping, comment: str = "") -> None:
+    def add_set(self, set_fn: str, set_config: Mapping, comment: str = "") -> None:
         self.insert1(
             dict(
-                method_fn=method_fn,
-                method_hash=make_hash(method_config),
-                method_config=method_config,
-                method_comment=comment,
+                set_fn=set_fn,
+                set_hash=make_hash(set_config),
+                set_config=set_config,
+                set_comment=comment,
             )
         )
 
-    def parse_method_config(self, method_config):
+    def parse_set_config(self, set_config):
         """
-        Parsing of the method config attributes
+        Parsing of the set config attributes to args and kwargs format, which is passable to the set_fn
         expecting it to be of the format
         {
-            attributes: {
-                attr1: {
-                    path: path_to_function,
-                    args: list_of_arguments (optional),
-                    kwargs: dict_of_keyword_arguments (optional)
-                }
+            parameter1: {
+                path: path_to_type_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
             },
-            process_fn: {
-                path: path_to_processing_function,
+            parameter1: {
+                path: path_to_type_function,
                 args: list_of_arguments (optional),
                 kwargs: dict_of_keyword_arguments (optional)
             }
         }
         """
-        attributes = method_config['attributes']
 
-        for key, value in attributes.items():
+        for key, value in set_config.items():
             if 'path' not in value:
-                attributes[key] = value['args']
+                set_config[key] = value['args']
                 continue
 
             attr_fn = self.import_func(value['path'])
@@ -77,20 +74,20 @@ class StimuliMethodMixin:
                 value['kwargs'] = {}
 
             attr = attr_fn(*value['args'], **value['kwargs'])
-            attributes[key] = attr
+            set_config[key] = attr
 
-        return method_config
+        return set_config
 
     def generate_stimuli(self, key: Key) -> np.ndarray:
         """
-        Returns the stimuli images given the method config.
+        Returns the stimuli images given the set config.
         """
-        method_fn, method_config = (self & key).fetch1("method_fn", "method_config")
-        method_fn = self.import_func(method_fn)
+        set_fn, set_config = (self & key).fetch1("set_fn", "set_config")
+        set_fn = self.import_func(set_fn)
 
-        method_config = self.parse_method_config(method_config)
+        set_config = self.parse_set_config(set_config)
 
-        stimuli_set = method_fn(**method_config['attributes'])
+        stimuli_set = set_fn(**set_config)
 
         return stimuli_set.images()
 
@@ -100,7 +97,7 @@ class ComputedStimuliTemplateMixin:
     -> self.method_table
     -> self.trained_model_table
     ---
-    stimuli             : longblob      # the stimuli parameters
+    stimuli             : longblob     # the stimuli parameters
     average_score       : float        # average score depending on the used method function
     """
 

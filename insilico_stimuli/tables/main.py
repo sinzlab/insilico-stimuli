@@ -1,11 +1,11 @@
 from nnfabrik.main import Dataset, schema
 import datajoint as dj
 
-from .ComputedStimuli import StimuliMethodMixin, ComputedStimuliTemplateMixin
+from .ComputedStimuli import StimuliSetsMixin, ComputedStimuliTemplateMixin
 
 @schema
-class StimuliMethod(StimuliMethodMixin, dj.Lookup):
-    """Table that contains Stimuli methods and their configurations."""
+class StimuliSets(StimuliSetsMixin, dj.Lookup):
+    """Table that contains Stimuli sets and their configurations."""
 
 
 class ComputedStimuliTemplate(ComputedStimuliTemplateMixin, dj.Computed):
@@ -17,4 +17,4 @@ class ComputedStimuliTemplate(ComputedStimuliTemplateMixin, dj.Computed):
     the class attribute called "method_table".
     """
 
-    method_table = StimuliMethod
+    method_table = StimuliSets
