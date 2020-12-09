@@ -90,7 +90,7 @@ class StimuliMethodMixin:
 
         method_config = self.parse_method_config(method_config)
 
-        stimuli_set = method_fn(method_config['attributes'])
+        stimuli_set = method_fn(**method_config['attributes'])
 
         return stimuli_set.images()
 
@@ -139,12 +139,12 @@ class ComputedStimuliTemplateMixin:
             method_config['process_fn']['kwargs'] = {}
 
         stimuli_entities = proccess_fn(
-            method(method_config['attributes'],
+            method(**method_config['attributes']),
             model,
             key['data_key'],
             *method_config['process_fn']['args'],
             **method_config['process_fn']['kwargs']
-        ))
+        )
 
         self.insert1(key, ignore_extra_fields=True)
 
