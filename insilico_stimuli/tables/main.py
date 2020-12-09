@@ -1,14 +1,18 @@
 from nnfabrik.main import Dataset, schema
 import datajoint as dj
 
-from .ComputedStimuli import StimuliSetsMixin, ComputedStimuliTemplateMixin
+from .ComputedStimuli import InsilicoStimuliSetMixin, StimuliOptimizeMethodMixin, OptimisedStimuliTemplateMixin
 
 @schema
-class StimuliSets(StimuliSetsMixin, dj.Lookup):
+class InsilicoStimuliSet(InsilicoStimuliSetMixin, dj.Lookup):
+    """Table that contains Stimuli sets and their configurations."""
+
+@schema
+class StimuliOptimizeMethod(StimuliOptimizeMethodMixin, dj.Lookup):
     """Table that contains Stimuli sets and their configurations."""
 
 
-class ComputedStimuliTemplate(ComputedStimuliTemplateMixin, dj.Computed):
+class OptimisedStimuliTemplate(OptimisedStimuliTemplateMixin, dj.Computed):
     """Stimuli table template.
     To create a functional "Stimuli" table, create a new class that inherits from this template and decorate it with your
     preferred Datajoint schema. Next assign your trained model (or trained ensemble model) and your selector table to
@@ -17,4 +21,5 @@ class ComputedStimuliTemplate(ComputedStimuliTemplateMixin, dj.Computed):
     the class attribute called "method_table".
     """
 
-    method_table = StimuliSets
+    optimisation_method_table = StimuliOptimizeMethod
+    stimuli_set_table = InsilicoStimuliSet
