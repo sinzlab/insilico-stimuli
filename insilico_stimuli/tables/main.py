@@ -1,25 +1,165 @@
-from nnfabrik.main import Dataset, schema
 import datajoint as dj
+import numpy as np
 
-from .mixins import InsilicoStimuliSetMixin, StimuliOptimizeMethodMixin, OptimisedStimuliTemplateMixin
+from typing import Callable, Mapping, Dict, Any
+
+from torch.utils.data import DataLoader
+
+from nnfabrik.main import Dataset, schema
+from nnfabrik.utility.dj_helpers import make_hash
+from nnfabrik.utility.nnf_helper import dynamic_import, split_module_name, FabrikCache
+
+Key = Dict[str, Any]
+Dataloaders = Dict[str, DataLoader]
+
+def import_module(path):
+    return dynamic_import(*split_module_name(path))
 
 @schema
-class InsilicoStimuliSet(InsilicoStimuliSetMixin, dj.Lookup):
-    """Table that contains Stimuli sets and their configurations."""
-
-@schema
-class StimuliOptimizeMethod(StimuliOptimizeMethodMixin, dj.Lookup):
-    """Table that contains Stimuli sets and their configurations."""
-
-
-class OptimisedStimuliTemplate(OptimisedStimuliTemplateMixin, dj.Computed):
-    """Stimuli table template.
-    To create a functional "Stimuli" table, create a new class that inherits from this template and decorate it with your
-    preferred Datajoint schema. Next assign your trained model (or trained ensemble model) and your selector table to
-    the class variables called "trained_model_table" and "selector_table". By default, the created table will point to
-    the "StimuliMethod" table in the Datajoint schema called "nnfabrik.main". This behavior can be changed by overwriting
-    the class attribute called "method_table".
+class InsilicoStimuliSet(dj.Lookup):
+    definition = """
+    # contains stimuli sets and their configurations.
+    stimulus_fn                           : varchar(64)   # name of the set function
+    stimulus_hash                         : varchar(32)   # hash of the set config
+    ---
+    stimulus_config                       : longblob      # set configuration object
+    stimulus_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
+    stimulus_comment                      : varchar(256)  # a short comment describing the set
     """
 
-    optimisation_method_table = StimuliOptimizeMethod
-    StimulusSet_table = InsilicoStimuliSet
+    insert1: Callable[[Mapping], None]
+    fetch1: Callable
+
+    import_func = staticmethod(import_module)
+
+    def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "") -> None:
+        self.insert1(
+            dict(
+                stimulus_fn=stimulus_fn,
+                stimulus_hash=make_hash(stimulus_config),
+                stimulus_config=stimulus_config,
+                stimulus_comment=comment,
+            )
+        )
+
+    def parse_stimulus_config(self, stimulus_config):
+        """
+        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
+        expecting it to be of the format
+        {
+            parameter1: {
+                path: path_to_type_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
+            },
+            parameter2: {
+                path: path_to_type_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
+            }
+        }
+        """
+
+        for key, value in stimulus_config.items():
+            if not isinstance(value, dict):
+                continue
+
+            attr_fn = self.import_func(value['path'])
+
+            if not 'args' in value:
+                value['args'] = []
+            if not 'kwargs' in value:
+                value['kwargs'] = {}
+
+            attr = attr_fn(*value['args'], **value['kwargs'])
+            stimulus_config[key] = attr
+
+        return stimulus_config
+
+    def images(self, key: Key, canvas_size: [int, int]) -> np.ndarray:
+        """
+        Returns the stimuli images given the set config.
+        """
+        stimulus_fn, stimulus_config = (self & key).fetch1("stimulus_fn", "stimulus_config")
+        stimulus_fn = self.import_func(stimulus_fn)
+
+        stimulus_config = self.parse_stimulus_config(stimulus_config)
+        stimulus_config['canvas_size'] = canvas_size
+
+        StimulusSet = stimulus_fn(**stimulus_config)
+
+        return StimulusSet.images()
+
+@schema
+class StimuliOptimizeMethod(dj.Lookup):
+    """Table that contains Stimuli sets and their configurations."""
+    definition = """
+        # contains methods for optimizing stimuli
+        method_fn                           : varchar(128)   # name of the set function
+        method_hash                         : varchar(32)   # hash of the set config
+        ---
+        method_config                       : longblob      # set configuration object
+        method_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
+        method_comment                      : varchar(256)  # a short comment describing the set
+        """
+
+    insert1: Callable[[Mapping], None]
+    fetch1: Callable
+
+    import_func = staticmethod(import_module)
+
+    def add_method(self, method_fn: str, method_config: Mapping, comment: str = "") -> None:
+        self.insert1(
+            dict(
+                method_fn=method_fn,
+                method_hash=make_hash(method_config),
+                method_config=method_config,
+                method_comment=comment,
+            )
+        )
+
+    def parse_method_config(self, method_config):
+        """
+        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
+        expecting it to be of the format
+        {
+            parameter1: {
+                path: path_to_type_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
+            },
+            parameter2: {
+                path: path_to_type_function,
+                args: list_of_arguments (optional),
+                kwargs: dict_of_keyword_arguments (optional)
+            }
+        }
+        """
+
+        for key, value in method_config.items():
+            if not isinstance(value, dict):
+                continue
+
+            attr_fn = self.import_func(value['path'])
+
+            if not 'args' in value:
+                value['args'] = []
+            if not 'kwargs' in value:
+                value['kwargs'] = {}
+
+            attr = attr_fn(*value['args'], **value['kwargs'])
+            method_config[key] = attr
+
+        return method_config
+
+# class OptimisedStimuliTemplate(OptimisedStimuliTemplateMixin, dj.Computed):
+#     """Stimuli table template.
+#     To create a functional "Stimuli" table, create a new class that inherits from this template and decorate it with your
+#     preferred Datajoint schema. Next assign your trained model (or trained ensemble model) and your selector table to
+#     the class variables called "trained_model_table" and "selector_table". By default, the created table will point to
+#     the "StimuliMethod" table in the Datajoint schema called "nnfabrik.main". This behavior can be changed by overwriting
+#     the class attribute called "method_table".
+#     """
+#
+#     optimisation_method_table = StimuliOptimizeMethod
+#     StimulusSet_table = InsilicoStimuliSet
