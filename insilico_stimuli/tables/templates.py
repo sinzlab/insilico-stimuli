@@ -114,11 +114,6 @@ class OptimisedStimuliTemplate(dj.Computed):
 
         dataloaders, model = self.model_loader.load(key=key)
 
-        batch = next(iter(list(dataloaders['test'].values())[0]))
-        _, _, w, h = batch.inputs.shape
-        canvas_size = [w, h]
-        stimulus_config['canvas_size'] = canvas_size
-
         stimuli_entities = self.get_stimuli_entities(key,
                              dataloaders, model,
                              method_fn, method_config,
