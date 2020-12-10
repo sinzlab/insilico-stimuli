@@ -10,11 +10,13 @@ from typing import Callable, Mapping, Dict, Any
 from torch.utils.data import DataLoader
 
 from nnfabrik.utility.dj_helpers import make_hash
-
-from . import integration
+from nnfabrik.utility.nnf_helper import dynamic_import, split_module_name, FabrikCache
 
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
+
+def import_module(path):
+    return dynamic_import(*split_module_name(path))
 
 class InsilicoStimuliSetMixin:
     definition = """
@@ -31,7 +33,7 @@ class InsilicoStimuliSetMixin:
     __and__: Callable[[Mapping], InsilicoStimuliSetMixin]
     fetch1: Callable
 
-    import_func = staticmethod(integration.import_module)
+    import_func = staticmethod(import_module)
 
     def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "") -> None:
         self.insert1(
@@ -106,7 +108,7 @@ class StimuliOptimizeMethodMixin:
     __and__: Callable[[Mapping], StimuliOptimizeMethodMixin]
     fetch1: Callable
 
-    import_func = staticmethod(integration.import_module)
+    import_func = staticmethod(import_module)
 
     def add_method(self, method_fn: str, method_config: Mapping, comment: str = "") -> None:
         self.insert1(
@@ -167,7 +169,7 @@ class OptimisedStimuliTemplateMixin:
     unit_table = None
     StimulusSet_table = None
 
-    model_loader_class = integration.ModelLoader
+    model_loader_class = FabrikCache
 
     insert1: Callable[[Mapping], None]
 
