@@ -19,12 +19,12 @@ Dataloaders = Dict[str, DataLoader]
 class InsilicoStimuliSetMixin:
     definition = """
     # contains stimuli sets and their configurations.
-    set_fn                           : varchar(64)   # name of the set function
-    set_hash                         : varchar(32)   # hash of the set config
+    stimulus_fn                           : varchar(64)   # name of the set function
+    stimulus_hash                         : varchar(32)   # hash of the set config
     ---
-    set_config                       : longblob      # set configuration object
-    set_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
-    set_comment                      : varchar(256)  # a short comment describing the set
+    stimulus_config                       : longblob      # set configuration object
+    stimulus_ts       = CURRENT_TIMESTAMP : timestamp     # UTZ timestamp at time of insertion
+    stimulus_comment                      : varchar(256)  # a short comment describing the set
     """
 
     insert1: Callable[[Mapping], None]
@@ -33,19 +33,19 @@ class InsilicoStimuliSetMixin:
 
     import_func = staticmethod(integration.import_module)
 
-    def add_set(self, set_fn: str, set_config: Mapping, comment: str = "") -> None:
+    def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "") -> None:
         self.insert1(
             dict(
-                set_fn=set_fn,
-                set_hash=make_hash(set_config),
-                set_config=set_config,
-                set_comment=comment,
+                stimulus_fn=stimulus_fn,
+                stimulus_hash=make_hash(stimulus_config),
+                stimulus_config=stimulus_config,
+                stimulus_comment=comment,
             )
         )
 
-    def parse_set_config(self, set_config):
+    def parse_stimulus_config(self, stimulus_config):
         """
-        Parsing of the set config attributes to args and kwargs format, which is passable to the set_fn
+        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
         expecting it to be of the format
         {
             parameter1: {
@@ -61,7 +61,7 @@ class InsilicoStimuliSetMixin:
         }
         """
 
-        for key, value in set_config.items():
+        for key, value in stimulus_config.items():
             if not isinstance(value, dict):
                 continue
 
@@ -73,23 +73,23 @@ class InsilicoStimuliSetMixin:
                 value['kwargs'] = {}
 
             attr = attr_fn(*value['args'], **value['kwargs'])
-            set_config[key] = attr
+            stimulus_config[key] = attr
 
-        return set_config
+        return stimulus_config
 
     def images(self, key: Key, canvas_size: [int, int]) -> np.ndarray:
         """
         Returns the stimuli images given the set config.
         """
-        set_fn, set_config = (self & key).fetch1("set_fn", "set_config")
-        set_fn = self.import_func(set_fn)
+        stimulus_fn, stimulus_config = (self & key).fetch1("stimulus_fn", "stimulus_config")
+        stimulus_fn = self.import_func(stimulus_fn)
 
-        set_config = self.parse_set_config(set_config)
-        set_config['canvas_size'] = canvas_size
+        stimulus_config = self.parse_stimulus_config(stimulus_config)
+        stimulus_config['canvas_size'] = canvas_size
 
-        stimuli_set = set_fn(**set_config)
+        StimulusSet = stimulus_fn(**stimulus_config)
 
-        return stimuli_set.images()
+        return StimulusSet.images()
 
 class StimuliOptimizeMethodMixin:
     definition = """
@@ -120,7 +120,7 @@ class StimuliOptimizeMethodMixin:
 
     def parse_method_config(self, method_config):
         """
-        Parsing of the set config attributes to args and kwargs format, which is passable to the set_fn
+        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
         expecting it to be of the format
         {
             parameter1: {
@@ -156,7 +156,7 @@ class OptimisedStimuliTemplateMixin:
     definition = """
     # contains optimal stimuli
     -> self.optimisation_method_table
-    -> self.stimuli_set_table
+    -> self.StimulusSet_table
     -> self.trained_model_table
     ---
     average_score = 0.      : float        # average score depending on the used method function
@@ -165,7 +165,7 @@ class OptimisedStimuliTemplateMixin:
     trained_model_table = None
     optimisation_method_table = None
     unit_table = None
-    stimuli_set_table = None
+    StimulusSet_table = None
 
     model_loader_class = integration.ModelLoader
 
@@ -186,14 +186,14 @@ class OptimisedStimuliTemplateMixin:
         """
 
     def get_stimulus_set(self, key):
-        stimuli_set = self.stimuli_set_table()
+        StimulusSet = self.StimulusSet_table()
 
-        set_config, set_fn = (stimuli_set & key).fetch1('set_config', 'set_fn')
-        set_config = stimuli_set.parse_set_config(set_config)
+        stimulus_config, stimulus_fn = (StimulusSet & key).fetch1('stimulus_config', 'stimulus_fn')
+        stimulus_config = StimulusSet.parse_stimulus_config(stimulus_config)
 
-        set_fn = stimuli_set.import_func(set_fn)
+        stimulus_fn = StimulusSet.import_func(stimulus_fn)
 
-        return set_config, set_fn
+        return stimulus_config, stimulus_fn
 
     def get_method(self, key):
         method = self.optimisation_method_table()
@@ -206,7 +206,7 @@ class OptimisedStimuliTemplateMixin:
         return method_config, method_fn
 
     def make(self, key: Key) -> None:
-        set_config, set_fn = self.get_stimulus_set(key)
+        stimulus_config, stimulus_fn = self.get_stimulus_set(key)
         method_config, method_fn = self.get_method(key)
 
         dataloaders, model = self.model_loader.load(key=key)
@@ -214,7 +214,7 @@ class OptimisedStimuliTemplateMixin:
         batch = next(iter(list(dataloaders['test'].values())[0]))
         _, _, w, h = batch.inputs.shape
         canvas_size = [w, h]
-        set_config['canvas_size'] = canvas_size
+        stimulus_config['canvas_size'] = canvas_size
 
         data_keys = list(dataloaders['test'].keys())
 
@@ -222,7 +222,7 @@ class OptimisedStimuliTemplateMixin:
 
         for data_key in data_keys:
             stimuli, scores = method_fn(
-                set_fn(**set_config),
+                stimulus_fn(**stimulus_config),
                 model,
                 data_key,
                 **method_config
