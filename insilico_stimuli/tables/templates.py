@@ -69,17 +69,10 @@ class OptimisedStimuliTemplate(dj.Computed):
 
         return method_config, method_fn
 
-    def make(self, key: Key) -> None:
-        stimulus_config, stimulus_fn = self.get_stimulus_set(key)
-        method_config, method_fn = self.get_method(key)
-
-        dataloaders, model = self.model_loader.load(key=key)
-
-        batch = next(iter(list(dataloaders['test'].values())[0]))
-        _, _, w, h = batch.inputs.shape
-        canvas_size = [w, h]
-        stimulus_config['canvas_size'] = canvas_size
-
+    def get_stimuli_entities(self, key,
+                             dataloaders, model,
+                             method_fn, method_config,
+                             stimulus_fn, stimulus_config):
         data_keys = list(dataloaders['test'].keys())
 
         stimuli_entities = []
@@ -107,10 +100,31 @@ class OptimisedStimuliTemplate(dj.Computed):
 
                 stimuli_entities.append(stimuli_entity)
 
+        return stimuli_entities
+
+    @staticmethod
+    def compute_average_score(stimuli_entities):
         scores = [stimuli_entity['score'] for stimuli_entity in stimuli_entities]
         average_score = np.mean(scores)
+        return average_score
 
-        key['average_score'] = average_score
+    def make(self, key: Key) -> None:
+        stimulus_config, stimulus_fn = self.get_stimulus_set(key)
+        method_config, method_fn = self.get_method(key)
+
+        dataloaders, model = self.model_loader.load(key=key)
+
+        batch = next(iter(list(dataloaders['test'].values())[0]))
+        _, _, w, h = batch.inputs.shape
+        canvas_size = [w, h]
+        stimulus_config['canvas_size'] = canvas_size
+
+        stimuli_entities = self.get_stimuli_entities(key,
+                             dataloaders, model,
+                             method_fn, method_config,
+                             stimulus_fn, stimulus_config)
+
+        key['average_score'] = self.compute_average_score(stimuli_entities)
 
         self.insert1(key, ignore_extra_fields=True)
         self.Units.insert(stimuli_entities, ignore_extra_fields=True)
