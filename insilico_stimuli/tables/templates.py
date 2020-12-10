@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datajoint as dj
+import numpy as np
 
 from typing import Callable, Mapping, Dict, Any
 
@@ -81,8 +82,7 @@ class OptimisedStimuliTemplate(dj.Computed):
 
         data_keys = list(dataloaders['test'].keys())
 
-        self.insert1(key, ignore_extra_fields=True)
-
+        stimuli_entities = []
         for data_key in data_keys:
             stimuli, scores = method_fn(
                 stimulus_fn(**stimulus_config),
@@ -90,6 +90,7 @@ class OptimisedStimuliTemplate(dj.Computed):
                 data_key,
                 **method_config
             )
+
             for idx, (stimulus, score) in enumerate(zip(stimuli, scores)):
                 unit_key = dict(unit_index=idx, data_key=data_key)
                 unit_type = ((self.unit_table & key) & unit_key).fetch1("unit_type")
@@ -103,4 +104,13 @@ class OptimisedStimuliTemplate(dj.Computed):
                     unit_id=unit_id,
                     **key
                 )
-                self.Units.insert1(stimuli_entity, ignore_extra_fields=True)
+
+                stimuli_entities.append(stimuli_entity)
+
+        scores = [stimuli_entity['score'] for stimuli_entity in stimuli_entities]
+        average_score = np.mean(scores)
+
+        key['average_score'] = average_score
+
+        self.insert1(key, ignore_extra_fields=True)
+        self.Units.insert(stimuli_entities, ignore_extra_fields=True)
