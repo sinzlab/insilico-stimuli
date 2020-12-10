@@ -128,7 +128,7 @@ class StimuliOptimizeMethodMixin:
                 args: list_of_arguments (optional),
                 kwargs: dict_of_keyword_arguments (optional)
             },
-            parameter1: {
+            parameter2: {
                 path: path_to_type_function,
                 args: list_of_arguments (optional),
                 kwargs: dict_of_keyword_arguments (optional)
@@ -235,7 +235,7 @@ class OptimisedStimuliTemplateMixin:
                 stimuli_entity = dict(
                     data_key=data_key,
                     stimulus=stimulus,
-                    score=score[idx],
+                    score=score,
                     unit_type=unit_type,
                     unit_id=unit_id,
                     **key

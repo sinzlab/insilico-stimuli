@@ -1,7 +1,7 @@
 from nnfabrik.main import Dataset, schema
 import datajoint as dj
 
-from .ComputedStimuli import InsilicoStimuliSetMixin, StimuliOptimizeMethodMixin, OptimisedStimuliTemplateMixin
+from .mixins import InsilicoStimuliSetMixin, StimuliOptimizeMethodMixin, OptimisedStimuliTemplateMixin
 
 @schema
 class InsilicoStimuliSet(InsilicoStimuliSetMixin, dj.Lookup):
