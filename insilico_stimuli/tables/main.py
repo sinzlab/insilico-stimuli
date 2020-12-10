@@ -22,4 +22,4 @@ class OptimisedStimuliTemplate(OptimisedStimuliTemplateMixin, dj.Computed):
     """
 
     optimisation_method_table = StimuliOptimizeMethod
-    stimuli_set_table = InsilicoStimuliSet
+    StimulusSet_table = InsilicoStimuliSet
