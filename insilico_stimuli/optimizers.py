@@ -6,14 +6,12 @@ from insilico_stimuli.parameters import *
 
 from tqdm import tqdm
 
-def bruteforce(StimulusSet, model, data_key, batch_size=100, unit_idx=None):
+def bruteforce(StimulusSet, model, batch_size=100, unit_idx=None):
     """
     Finds optimal parameter combination for all units based on brute force testing method.
 
     Args:
-        StimulusSet (StimulusSet Object): Instance of the StimulusSet class.
         model (Encoder): The evaluated model as an encoder class.
-        data_key (char): data key or session ID of model.
         batch_size (int or optional): number of images per batch.
         unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
             parameters for all model neurons (advised, because search is done for all units anyway).
@@ -26,10 +24,10 @@ def bruteforce(StimulusSet, model, data_key, batch_size=100, unit_idx=None):
         raise TypeError('This method needs inputs of type FiniteParameter or FiniteSelection.')
 
     n_images = np.prod(StimulusSet.num_params())  # number of all parameter combinations
-    n_units = model.readout[data_key].outdims  # number of units
+    # n_units = model.readout[data_key].outdims  # number of units
 
-    argmax_activations = np.zeros(n_units).astype(int)
-    max_activations = np.zeros(n_units)
+    argmax_activations = None
+    max_activations = None
 
     # divide set of images in batches before showing it to the model
     for batch_idx, batch in tqdm(enumerate(StimulusSet.image_batches(batch_size)), total=n_images // batch_size):
@@ -41,7 +39,14 @@ def bruteforce(StimulusSet, model, data_key, batch_size=100, unit_idx=None):
         images_batch = batch.reshape((batch_size,) + tuple(StimulusSet.canvas_size))
         images_batch = np.expand_dims(images_batch, axis=1)
         images_batch = torch.tensor(images_batch).float()
-        activations_batch = model(images_batch, data_key=data_key).detach().numpy().squeeze()
+        activations_batch = model(images_batch).detach().numpy().squeeze()
+
+        # Initialize the activation vectors from the initial pass through the model
+        if not argmax_activations or not max_activations:
+            n_units = activations_batch.shape[1]
+
+            argmax_activations = np.zeros(n_units).astype(int)
+            max_activations = np.zeros(n_units)
 
         new_max_idx = activations_batch.argmax(0)
         new_max_activations = activations_batch.T[range(len(new_max_idx)), new_max_idx]

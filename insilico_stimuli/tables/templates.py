@@ -6,6 +6,7 @@ import datajoint as dj
 import numpy as np
 
 from typing import Callable, Mapping, Dict, Any
+from functools import partial
 
 from torch.utils.data import DataLoader
 
@@ -79,8 +80,7 @@ class OptimisedStimuliTemplate(dj.Computed):
         for data_key in data_keys:
             stimuli, scores = method_fn(
                 stimulus_fn(**stimulus_config),
-                model,
-                data_key,
+                partial(model, data_key=data_key),
                 **method_config
             )
 
