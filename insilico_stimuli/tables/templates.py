@@ -20,7 +20,7 @@ Dataloaders = Dict[str, DataLoader]
 class OptimisedStimuliTemplate(dj.Computed):
     definition = """
     # contains optimal stimuli
-    -> self.optimisation_method_table
+    -> self.optimization_method_table
     -> self.StimulusSet_table
     -> self.trained_model_table
     ---
@@ -29,7 +29,7 @@ class OptimisedStimuliTemplate(dj.Computed):
 
     trained_model_table = None
     unit_table = None
-    optimisation_method_table = StimuliOptimizeMethod
+    optimization_method_table = StimuliOptimizeMethod
     StimulusSet_table = InsilicoStimuliSet
 
     model_loader_class = FabrikCache
@@ -61,7 +61,7 @@ class OptimisedStimuliTemplate(dj.Computed):
         return stimulus_config, stimulus_fn
 
     def get_method(self, key):
-        method = self.optimisation_method_table()
+        method = self.optimization_method_table()
 
         method_config, method_fn = (method & key).fetch1('method_config', 'method_fn')
         method_config = method.parse_method_config(method_config)
