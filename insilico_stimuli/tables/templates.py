@@ -12,24 +12,34 @@ from torch.utils.data import DataLoader
 
 from nnfabrik.utility.nnf_helper import FabrikCache
 
-from .main import StimuliOptimizeMethod, InsilicoStimuliSet
+from .main import ExperimentMethod, InsilicoStimuliSet
 
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
 
-class OptimisedStimuliTemplate(dj.Computed):
+class ExperimentTemplate(dj.Computed):
     definition = """
     # contains optimal stimuli
-    -> self.optimization_method_table
+    -> self.experiment_method_table
     -> self.StimulusSet_table
     -> self.trained_model_table
     ---
-    average_score = 0.      : float        # average score depending on the used method function
+    prev_method_fn:                    varchar(64)
+    prev_method_hash:                  varchar(64)
+    prev_stimulus_fn:                  varchar(64)
+    prev_stimulus_hash:                varchar(64)
+    prev_model_fn:                     varchar(64)
+    prev_model_hash:                   varchar(64)
+    prev_dataset_fn:                   varchar(64)
+    prev_dataset_hash:                 varchar(64)
+    prev_trainer_fn:                   varchar(64)
+    prev_trainer_hash:                 varchar(64)
+    average_score = 0.:                float        # average score depending on the used method function
     """
 
     trained_model_table = None
     unit_table = None
-    optimization_method_table = StimuliOptimizeMethod
+    experiment_method_table = ExperimentMethod
     StimulusSet_table = InsilicoStimuliSet
 
     model_loader_class = FabrikCache
@@ -46,7 +56,7 @@ class OptimisedStimuliTemplate(dj.Computed):
         -> master
         -> master.unit_table
         ---
-        stimulus         : longblob
+        output           : longblob
         score            : float
         """
 
@@ -61,7 +71,7 @@ class OptimisedStimuliTemplate(dj.Computed):
         return stimulus_config, stimulus_fn
 
     def get_method(self, key):
-        method = self.optimization_method_table()
+        method = self.experiment_method_table()
 
         method_config, method_fn = (method & key).fetch1('method_config', 'method_fn')
         method_config = method.parse_method_config(method_config)
@@ -70,28 +80,28 @@ class OptimisedStimuliTemplate(dj.Computed):
 
         return method_config, method_fn
 
-    def get_stimuli_entities(self, key,
-                             dataloaders, model,
-                             method_fn, method_config,
-                             stimulus_fn, stimulus_config):
+    def get_experiment_output(self, key,
+                              dataloaders, model,
+                              method_fn, method_config,
+                              stimulus_fn, stimulus_config):
         data_keys = list(dataloaders['test'].keys())
 
         stimuli_entities = []
         for data_key in data_keys:
-            stimuli, scores = method_fn(
+            outputs, scores = method_fn(
                 stimulus_fn(**stimulus_config),
                 partial(model, data_key=data_key),
                 **method_config
             )
 
-            for idx, (stimulus, score) in enumerate(zip(stimuli, scores)):
+            for idx, (output, score) in enumerate(zip(outputs, scores)):
                 unit_key = dict(unit_index=idx, data_key=data_key)
                 unit_type = ((self.unit_table & key) & unit_key).fetch1("unit_type")
                 unit_id = ((self.unit_table & key) & unit_key).fetch1("unit_id")
 
                 stimuli_entity = dict(
                     data_key=data_key,
-                    stimulus=stimulus,
+                    output=output,
                     score=score,
                     unit_type=unit_type,
                     unit_id=unit_id,
@@ -103,8 +113,8 @@ class OptimisedStimuliTemplate(dj.Computed):
         return stimuli_entities
 
     @staticmethod
-    def compute_average_score(stimuli_entities):
-        scores = [stimuli_entity['score'] for stimuli_entity in stimuli_entities]
+    def compute_average_score(experiment_entities):
+        scores = [experiment_entity['score'] for experiment_entity in experiment_entities]
         average_score = np.mean(scores)
         return average_score
 
@@ -114,12 +124,12 @@ class OptimisedStimuliTemplate(dj.Computed):
 
         dataloaders, model = self.model_loader.load(key=key)
 
-        stimuli_entities = self.get_stimuli_entities(key,
-                             dataloaders, model,
-                             method_fn, method_config,
-                             stimulus_fn, stimulus_config)
+        experiment_entities = self.get_experiment_output(key,
+                                                      dataloaders, model,
+                                                      method_fn, method_config,
+                                                      stimulus_fn, stimulus_config)
 
-        key['average_score'] = self.compute_average_score(stimuli_entities)
+        key['average_score'] = self.compute_average_score(experiment_entities)
 
         self.insert1(key, ignore_extra_fields=True)
-        self.Units.insert(stimuli_entities, ignore_extra_fields=True)
+        self.Units.insert(experiment_entities, ignore_extra_fields=True)

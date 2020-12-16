@@ -90,7 +90,7 @@ class InsilicoStimuliSet(dj.Lookup):
         return StimulusSet.images()
 
 @schema
-class StimuliOptimizeMethod(dj.Lookup):
+class ExperimentMethod(dj.Lookup):
     """Table that contains Stimuli sets and their configurations."""
     definition = """
         # contains methods for optimizing stimuli
