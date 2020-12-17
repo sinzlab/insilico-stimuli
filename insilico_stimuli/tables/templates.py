@@ -17,30 +17,37 @@ from .main import ExperimentMethod, InsilicoStimuliSet
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
 
-class ExperimentTemplate(dj.Computed):
-    definition = """
-    # contains optimal stimuli
-    -> self.experiment_method_table
-    -> self.StimulusSet_table
-    -> self.trained_model_table
-    ---
-    prev_method_fn:                    varchar(64)
-    prev_method_hash:                  varchar(64)
-    prev_stimulus_fn:                  varchar(64)
-    prev_stimulus_hash:                varchar(64)
-    prev_model_fn:                     varchar(64)
-    prev_model_hash:                   varchar(64)
-    prev_dataset_fn:                   varchar(64)
-    prev_dataset_hash:                 varchar(64)
-    prev_trainer_fn:                   varchar(64)
-    prev_trainer_hash:                 varchar(64)
-    average_score = 0.:                float        # average score depending on the used method function
-    """
 
+class ExperimentTemplate(dj.Computed):
     trained_model_table = None
     unit_table = None
+    previous_experiment_table = None
     experiment_method_table = ExperimentMethod
     StimulusSet_table = InsilicoStimuliSet
+
+    @property
+    def prev_primary_keys(self):
+        prev_primary_keys = None
+        if self.previous_experiment_table:
+            prev_primary_keys = self.previous_experiment_table.primary_key
+        return prev_primary_keys
+
+    @property
+    def definition(self):
+        if self.previous_experiment_table:
+            projection = '.proj(' + ', '.join([f'prev_{key}="{key}"' for key in self.prev_primary_keys]) + ')'
+
+        definition = """
+        # contains optimal stimuli
+        -> self.experiment_method_table
+        -> self.StimulusSet_table
+        -> self.trained_model_table
+        {}
+        ---
+        average_score = 0.:                float        # average score depending on the used method function
+        """.format('-> self.previous_experiment_table' + projection if self.previous_experiment_table else '')
+
+        return definition
 
     model_loader_class = FabrikCache
 
@@ -88,11 +95,24 @@ class ExperimentTemplate(dj.Computed):
 
         stimuli_entities = []
         for data_key in data_keys:
-            outputs, scores = method_fn(
-                stimulus_fn(**stimulus_config),
-                partial(model, data_key=data_key),
-                **method_config
-            )
+            if self.previous_experiment_table:
+                prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
+
+                previous_experiment = (
+                            (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)).fetch(as_dict=True)
+
+                outputs, scores = method_fn(
+                    stimulus_fn(**stimulus_config),
+                    partial(model, data_key=data_key),
+                    previous_experiment=previous_experiment,
+                    **method_config
+                )
+            else:
+                outputs, scores = method_fn(
+                    stimulus_fn(**stimulus_config),
+                    partial(model, data_key=data_key),
+                    **method_config
+                )
 
             for idx, (output, score) in enumerate(zip(outputs, scores)):
                 unit_key = dict(unit_index=idx, data_key=data_key)
@@ -125,9 +145,9 @@ class ExperimentTemplate(dj.Computed):
         dataloaders, model = self.model_loader.load(key=key)
 
         experiment_entities = self.get_experiment_output(key,
-                                                      dataloaders, model,
-                                                      method_fn, method_config,
-                                                      stimulus_fn, stimulus_config)
+                                                         dataloaders, model,
+                                                         method_fn, method_config,
+                                                         stimulus_fn, stimulus_config)
 
         key['average_score'] = self.compute_average_score(experiment_entities)
 
