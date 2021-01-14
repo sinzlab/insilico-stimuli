@@ -99,7 +99,8 @@ class ExperimentTemplate(dj.Computed):
                 prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
 
                 previous_experiment = (
-                            (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)).fetch(as_dict=True)
+                        (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)
+                ).fetch(as_dict=True)
 
                 outputs, scores = method_fn(
                     stimulus_fn(**stimulus_config),

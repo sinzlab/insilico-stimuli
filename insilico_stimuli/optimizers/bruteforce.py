@@ -11,6 +11,7 @@ def bruteforce(StimulusSet, model, batch_size=100, unit_idx=None):
     Finds optimal parameter combination for all units based on brute force testing method.
 
     Args:
+        StimulusSet (StimulusSet): Instance of the StimulusSet class.
         model (Encoder): The evaluated model as an encoder class.
         batch_size (int or optional): number of images per batch.
         unit_idx (int or None): unit index of the desired model neuron. If not specified, return the best
