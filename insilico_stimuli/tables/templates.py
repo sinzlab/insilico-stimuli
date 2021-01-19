@@ -219,6 +219,8 @@ class ExperimentPerUnitTemplate(dj.Computed):
     def get_experiment_output(self, key, model,
                               method_fn, method_config,
                               stimulus_fn, stimulus_config):
+        unit_index = (self.unit_table & key).fetch1('unit_index')
+
         if self.previous_experiment_table:
             prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
 
@@ -229,14 +231,14 @@ class ExperimentPerUnitTemplate(dj.Computed):
                 stimulus_fn(**stimulus_config),
                 partial(model, data_key=key['data_key']),
                 previous_experiment=previous_experiment,
-                unit=key['unit_id'] - 1,
+                unit=unit_index,
                 **method_config
             )
         else:
             output, score = method_fn(
                 stimulus_fn(**stimulus_config),
                 partial(model, data_key=key['data_key']),
-                unit=key['unit_id'] - 1,
+                unit=unit_index,
                 **method_config
             )
 
