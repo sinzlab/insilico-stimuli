@@ -10,8 +10,6 @@ from functools import partial
 
 from torch.utils.data import DataLoader
 
-from nnfabrik.utility.nnf_helper import FabrikCache
-
 from .main import ExperimentMethod, InsilicoStimuliSet
 
 Key = Dict[str, Any]
@@ -49,13 +47,10 @@ class ExperimentTemplate(dj.Computed):
 
         return definition
 
-    model_loader_class = FabrikCache
-
     insert1: Callable[[Mapping], None]
 
     def __init__(self, *args, cache_size_limit: int = 10, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_loader = self.model_loader_class(self.trained_model_table, cache_size_limit=cache_size_limit)
 
     class Units(dj.Part):
         definition = """
@@ -99,8 +94,7 @@ class ExperimentTemplate(dj.Computed):
                 prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
 
                 previous_experiment = (
-                        (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)
-                ).fetch(as_dict=True)
+                            (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)).fetch(as_dict=True)
 
                 outputs, scores = method_fn(
                     stimulus_fn(**stimulus_config),
@@ -109,6 +103,7 @@ class ExperimentTemplate(dj.Computed):
                     **method_config
                 )
             else:
+                print(method_config)
                 outputs, scores = method_fn(
                     stimulus_fn(**stimulus_config),
                     partial(model, data_key=data_key),
@@ -143,7 +138,8 @@ class ExperimentTemplate(dj.Computed):
         stimulus_config, stimulus_fn = self.get_stimulus_set(key)
         method_config, method_fn = self.get_method(key)
 
-        dataloaders, model = self.model_loader.load(key=key)
+        dataloaders, model = self.trained_model_table().load_model(key, include_dataloader=True)
+        model.cuda().eval()
 
         experiment_entities = self.get_experiment_output(key,
                                                          dataloaders, model,
