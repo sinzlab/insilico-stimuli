@@ -1,5 +1,8 @@
 from nnidentify.fitgabor.fitgabor import GaborGenerator, trainer_fn
 
+import torch
+
+
 def gradient_descent_per_unit(StimulusSet, gabor_gen, model, unit, epochs, lr, fixed_std):
     gabor_gen, _ = trainer_fn(gabor_gen, lambda x: model(x)[:, unit], epochs=epochs, lr=lr, fixed_std=fixed_std)
 
@@ -19,7 +22,10 @@ def gradient_descent_per_unit(StimulusSet, gabor_gen, model, unit, epochs, lr, f
 
     return stimuli_params, max_activation
 
-def gradient_descent(StimulusSet, model, unit=None, fixed_std=1., lr=5e-3, epochs=20000):
+
+def gradient_descent(StimulusSet, model, unit=None, seed=None, fixed_std=1., lr=5e-3, epochs=20000):
+    torch.manual_seed(seed)
+
     if unit is None:
         gabor_gen = GaborGenerator(StimulusSet.canvas_size[::-1], target_std=fixed_std)
         test_img = gabor_gen()

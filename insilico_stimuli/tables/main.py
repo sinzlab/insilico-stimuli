@@ -150,3 +150,10 @@ class ExperimentMethod(dj.Lookup):
             method_config[key] = attr
 
         return method_config
+
+@schema
+class ExperimentSeed(dj.Lookup):
+    definition = """
+        # contains seeds used to make the experiments reproducible
+        seed                                : int   # experiment seed
+        """

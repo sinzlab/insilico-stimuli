@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from nnfabrik.utility.nnf_helper import FabrikCache
 
-from .main import ExperimentMethod, InsilicoStimuliSet
+from .main import ExperimentMethod, ExperimentSeed, InsilicoStimuliSet
 
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
@@ -159,6 +159,7 @@ class ExperimentPerUnitTemplate(dj.Computed):
     trained_model_table = None
     unit_table = None
     previous_experiment_table = None
+    seed_table = ExperimentSeed
     experiment_method_table = ExperimentMethod
     StimulusSet_table = InsilicoStimuliSet
 
@@ -180,6 +181,7 @@ class ExperimentPerUnitTemplate(dj.Computed):
         -> self.StimulusSet_table
         -> self.trained_model_table
         -> self.unit_table
+        -> self.seed_table
         {}
         ---
         output           : longblob
@@ -220,6 +222,7 @@ class ExperimentPerUnitTemplate(dj.Computed):
                               method_fn, method_config,
                               stimulus_fn, stimulus_config):
         unit_index = (self.unit_table & key).fetch1('unit_index')
+        seed = (self.seed_table & key).fetch1('seed')
 
         if self.previous_experiment_table:
             prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
@@ -232,6 +235,7 @@ class ExperimentPerUnitTemplate(dj.Computed):
                 partial(model, data_key=key['data_key']),
                 previous_experiment=previous_experiment,
                 unit=unit_index,
+                seed=seed,
                 **method_config
             )
         else:
@@ -239,6 +243,7 @@ class ExperimentPerUnitTemplate(dj.Computed):
                 stimulus_fn(**stimulus_config),
                 partial(model, data_key=key['data_key']),
                 unit=unit_index,
+                seed=seed,
                 **method_config
             )
 
