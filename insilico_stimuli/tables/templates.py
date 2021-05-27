@@ -25,29 +25,14 @@ class ExperimentTemplate(dj.Computed):
     experiment_method_table = ExperimentMethod
     StimulusSet_table = InsilicoStimuliSet
 
-    @property
-    def prev_primary_keys(self):
-        prev_primary_keys = None
-        if self.previous_experiment_table:
-            prev_primary_keys = self.previous_experiment_table.primary_key
-        return prev_primary_keys
-
-    @property
-    def definition(self):
-        if self.previous_experiment_table:
-            projection = '.proj(' + ', '.join([f'prev_{key}="{key}"' for key in self.prev_primary_keys]) + ')'
-
-        definition = """
-        # contains optimal stimuli
-        -> self.experiment_method_table
-        -> self.StimulusSet_table
-        -> self.trained_model_table
-        {}
-        ---
-        average_score = 0.:                float        # average score depending on the used method function
-        """.format('-> self.previous_experiment_table' + projection if self.previous_experiment_table else '')
-
-        return definition
+    definition = """
+    # contains optimal stimuli
+    -> self.experiment_method_table
+    -> self.StimulusSet_table
+    -> self.trained_model_table
+    ---
+    average_score = 0.:                float        # average score depending on the used method function
+    """
 
     model_loader_class = FabrikCache
 
@@ -67,16 +52,6 @@ class ExperimentTemplate(dj.Computed):
         score            : float
         """
 
-    def get_stimulus_set(self, key):
-        StimulusSet = self.StimulusSet_table()
-
-        stimulus_config, stimulus_fn = (StimulusSet & key).fetch1('stimulus_config', 'stimulus_fn')
-        stimulus_config = StimulusSet.parse_stimulus_config(stimulus_config)
-
-        stimulus_fn = StimulusSet.import_func(stimulus_fn)
-
-        return stimulus_config, stimulus_fn
-
     def get_method(self, key):
         method = self.experiment_method_table()
 
@@ -87,32 +62,18 @@ class ExperimentTemplate(dj.Computed):
 
         return method_config, method_fn
 
-    def get_experiment_output(self, key,
-                              dataloaders, model,
-                              method_fn, method_config,
-                              stimulus_fn, stimulus_config):
+    def get_experiment_output(self, key, dataloaders, model, method_fn, method_config, stimulus_set):
         data_keys = list(dataloaders['test'].keys())
 
         stimuli_entities = []
         for data_key in data_keys:
-            if self.previous_experiment_table:
-                prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
+            model.forward = partial(model.forward, data_key=data_key)
 
-                previous_experiment = (
-                            (self.previous_experiment_table & prev_key).Units() & dict(data_key=data_key)).fetch(as_dict=True)
-
-                outputs, scores = method_fn(
-                    stimulus_fn(**stimulus_config),
-                    partial(model, data_key=data_key),
-                    previous_experiment=previous_experiment,
-                    **method_config
-                )
-            else:
-                outputs, scores = method_fn(
-                    stimulus_fn(**stimulus_config),
-                    partial(model, data_key=data_key),
-                    **method_config
-                )
+            outputs, scores = method_fn(
+                stimulus_set,
+                model,
+                **method_config
+            )
 
             for idx, (output, score) in enumerate(zip(outputs, scores)):
                 unit_key = dict(unit_index=idx, data_key=data_key)
@@ -139,7 +100,7 @@ class ExperimentTemplate(dj.Computed):
         return average_score
 
     def make(self, key: Key) -> None:
-        stimulus_config, stimulus_fn = self.get_stimulus_set(key)
+        stimulus_set = self.StimulusSet_table().load(key=key)
         method_config, method_fn = self.get_method(key)
 
         dataloaders, model = self.model_loader.load(key=key)
@@ -148,47 +109,32 @@ class ExperimentTemplate(dj.Computed):
         experiment_entities = self.get_experiment_output(key,
                                                          dataloaders, model,
                                                          method_fn, method_config,
-                                                         stimulus_fn, stimulus_config)
+                                                         stimulus_set)
 
         key['average_score'] = self.compute_average_score(experiment_entities)
 
         self.insert1(key, ignore_extra_fields=True)
         self.Units.insert(experiment_entities, ignore_extra_fields=True)
 
+
 class ExperimentPerUnitTemplate(dj.Computed):
     trained_model_table = None
     unit_table = None
-    previous_experiment_table = None
     seed_table = ExperimentSeed
     experiment_method_table = ExperimentMethod
     StimulusSet_table = InsilicoStimuliSet
 
-    @property
-    def prev_primary_keys(self):
-        prev_primary_keys = None
-        if self.previous_experiment_table:
-            prev_primary_keys = self.previous_experiment_table.primary_key
-        return prev_primary_keys
-
-    @property
-    def definition(self):
-        if self.previous_experiment_table:
-            projection = '.proj(' + ', '.join([f'prev_{key}="{key}"' for key in self.prev_primary_keys]) + ')'
-
-        definition = """
-        # contains optimal stimuli
-        -> self.experiment_method_table
-        -> self.StimulusSet_table
-        -> self.trained_model_table
-        -> self.unit_table
-        -> self.seed_table
-        {}
-        ---
-        output           : longblob
-        score            : float
-        """.format('-> self.previous_experiment_table' + projection if self.previous_experiment_table else '')
-
-        return definition
+    definition = """
+    # contains optimal stimuli
+    -> self.experiment_method_table
+    -> self.StimulusSet_table
+    -> self.trained_model_table
+    -> self.unit_table
+    -> self.seed_table
+    ---
+    output           : longblob
+    score            : float
+    """
 
     model_loader_class = FabrikCache
 
@@ -197,16 +143,6 @@ class ExperimentPerUnitTemplate(dj.Computed):
     def __init__(self, *args, cache_size_limit: int = 10, **kwargs):
         self.model_loader = self.model_loader_class(self.trained_model_table, cache_size_limit=cache_size_limit)
         super().__init__(*args, **kwargs)
-
-    def get_stimulus_set(self, key):
-        StimulusSet = self.StimulusSet_table()
-
-        stimulus_config, stimulus_fn = (StimulusSet & key).fetch1('stimulus_config', 'stimulus_fn')
-        stimulus_config = StimulusSet.parse_stimulus_config(stimulus_config)
-
-        stimulus_fn = StimulusSet.import_func(stimulus_fn)
-
-        return stimulus_config, stimulus_fn
 
     def get_method(self, key):
         method = self.experiment_method_table()
@@ -218,34 +154,19 @@ class ExperimentPerUnitTemplate(dj.Computed):
 
         return method_config, method_fn
 
-    def get_experiment_output(self, key, model,
-                              method_fn, method_config,
-                              stimulus_fn, stimulus_config):
+    def get_experiment_output(self, key, model, method_fn, method_config, stimulus_set):
         unit_index = (self.unit_table & key).fetch1('unit_index')
         seed = (self.seed_table & key).fetch1('seed')
 
-        if self.previous_experiment_table:
-            prev_key = {prev_key.strip('prev_'): key[prev_key] for prev_key in self.prev_primary_keys}
+        model.forward = partial(model.forward, data_key=key['data_key'])
 
-            previous_experiment = (
-                        (self.previous_experiment_table & prev_key).Units() & dict(data_key=key['data_key'])).fetch(as_dict=True)
-
-            output, score = method_fn(
-                stimulus_fn(**stimulus_config),
-                partial(model, data_key=key['data_key']),
-                previous_experiment=previous_experiment,
-                unit=unit_index,
-                seed=seed,
-                **method_config
-            )
-        else:
-            output, score = method_fn(
-                stimulus_fn(**stimulus_config),
-                partial(model, data_key=key['data_key']),
-                unit=unit_index,
-                seed=seed,
-                **method_config
-            )
+        output, score = method_fn(
+            stimulus_set,
+            model,
+            unit=unit_index,
+            seed=seed,
+            **method_config
+        )
 
         stimuli_entity = dict(
             output=output,
@@ -256,14 +177,13 @@ class ExperimentPerUnitTemplate(dj.Computed):
         return stimuli_entity
 
     def make(self, key: Key) -> None:
-        stimulus_config, stimulus_fn = self.get_stimulus_set(key)
-        method_config, method_fn = self.get_method(key)
+        stimulus_set = self.StimulusSet_table().load(key=key)
+        method_config, method_fn = self.get_method(key=key)
 
         dataloaders, model = self.model_loader.load(key=key)
         model.cuda().eval()
 
-        experiment_entity = self.get_experiment_output(key, model,
-                                                         method_fn, method_config,
-                                                         stimulus_fn, stimulus_config)
+        experiment_entity = self.get_experiment_output(key, model, method_fn, method_config, stimulus_set)
 
         self.insert1(experiment_entity, ignore_extra_fields=True)
+

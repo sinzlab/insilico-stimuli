@@ -1,6 +1,8 @@
 import datajoint as dj
 import numpy as np
 
+import warnings
+
 from typing import Callable, Mapping, Dict, Any
 
 from torch.utils.data import DataLoader
@@ -12,8 +14,10 @@ from nnfabrik.utility.nnf_helper import dynamic_import, split_module_name, Fabri
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
 
+
 def import_module(path):
     return dynamic_import(*split_module_name(path))
+
 
 @schema
 class InsilicoStimuliSet(dj.Lookup):
@@ -32,15 +36,26 @@ class InsilicoStimuliSet(dj.Lookup):
 
     import_func = staticmethod(import_module)
 
-    def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "") -> None:
-        self.insert1(
-            dict(
-                stimulus_fn=stimulus_fn,
-                stimulus_hash=make_hash(stimulus_config),
-                stimulus_config=stimulus_config,
-                stimulus_comment=comment,
-            )
+    def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "",
+                skip_duplicates: bool = False) -> None:
+        key = dict(
+            stimulus_fn=stimulus_fn,
+            stimulus_hash=make_hash(stimulus_config),
+            stimulus_config=stimulus_config,
+            stimulus_comment=comment,
         )
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn("Corresponding entry found. Skipping...")
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError("Corresponding entry already exists")
+        else:
+            self.insert1(key)
+
+        return key
 
     def parse_stimulus_config(self, stimulus_config):
         """
@@ -64,6 +79,11 @@ class InsilicoStimuliSet(dj.Lookup):
             if not isinstance(value, dict):
                 continue
 
+            if 'path' not in value:
+                if 'args' in value:
+                    stimulus_config[key] = value['args']
+                continue
+
             attr_fn = self.import_func(value['path'])
 
             if not 'args' in value:
@@ -76,9 +96,9 @@ class InsilicoStimuliSet(dj.Lookup):
 
         return stimulus_config
 
-    def images(self, key: Key) -> np.ndarray:
+    def load(self, key: Key) -> np.ndarray:
         """
-        Returns the stimuli images given the set config.
+        Returns the stimuli set instance.
         """
         stimulus_fn, stimulus_config = (self & key).fetch1("stimulus_fn", "stimulus_config")
         stimulus_fn = self.import_func(stimulus_fn)
@@ -87,7 +107,8 @@ class InsilicoStimuliSet(dj.Lookup):
 
         StimulusSet = stimulus_fn(**stimulus_config)
 
-        return StimulusSet.images()
+        return StimulusSet
+
 
 @schema
 class ExperimentMethod(dj.Lookup):
@@ -107,15 +128,26 @@ class ExperimentMethod(dj.Lookup):
 
     import_func = staticmethod(import_module)
 
-    def add_method(self, method_fn: str, method_config: Mapping, comment: str = "") -> None:
-        self.insert1(
-            dict(
-                method_fn=method_fn,
-                method_hash=make_hash(method_config),
-                method_config=method_config,
-                method_comment=comment,
-            )
+    def add_method(self, method_fn: str, method_config: Mapping, comment: str = "",
+                   skip_duplicates: bool = False) -> None:
+        key = dict(
+            method_fn=method_fn,
+            method_hash=make_hash(method_config),
+            method_config=method_config,
+            method_comment=comment,
         )
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn("Corresponding entry found. Skipping...")
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError("Corresponding entry already exists")
+        else:
+            self.insert1(key)
+
+        return key
 
     def parse_method_config(self, method_config):
         """
@@ -139,6 +171,11 @@ class ExperimentMethod(dj.Lookup):
             if not isinstance(value, dict):
                 continue
 
+            if 'path' not in value:
+                if 'args' in value:
+                    method_config[key] = value['args']
+                continue
+
             attr_fn = self.import_func(value['path'])
 
             if not 'args' in value:
@@ -150,6 +187,7 @@ class ExperimentMethod(dj.Lookup):
             method_config[key] = attr
 
         return method_config
+
 
 @schema
 class ExperimentSeed(dj.Lookup):
