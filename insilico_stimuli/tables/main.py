@@ -9,14 +9,11 @@ from torch.utils.data import DataLoader
 
 from nnfabrik.main import Dataset, schema
 from nnfabrik.utility.dj_helpers import make_hash
-from nnfabrik.utility.nnf_helper import dynamic_import, split_module_name, FabrikCache
+
+from .utils import parse_config, import_module
 
 Key = Dict[str, Any]
 Dataloaders = Dict[str, DataLoader]
-
-
-def import_module(path):
-    return dynamic_import(*split_module_name(path))
 
 
 @schema
@@ -35,6 +32,7 @@ class InsilicoStimuliSet(dj.Lookup):
     fetch1: Callable
 
     import_func = staticmethod(import_module)
+    parse_stimulus_config = staticmethod(parse_config)
 
     def add_set(self, stimulus_fn: str, stimulus_config: Mapping, comment: str = "",
                 skip_duplicates: bool = False) -> None:
@@ -57,44 +55,6 @@ class InsilicoStimuliSet(dj.Lookup):
 
         return key
 
-    def parse_stimulus_config(self, stimulus_config):
-        """
-        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
-        expecting it to be of the format
-        {
-            parameter1: {
-                path: path_to_type_function,
-                args: list_of_arguments (optional),
-                kwargs: dict_of_keyword_arguments (optional)
-            },
-            parameter2: {
-                path: path_to_type_function,
-                args: list_of_arguments (optional),
-                kwargs: dict_of_keyword_arguments (optional)
-            }
-        }
-        """
-
-        for key, value in stimulus_config.items():
-            if not isinstance(value, dict):
-                continue
-
-            if 'path' not in value:
-                if 'args' in value:
-                    stimulus_config[key] = value['args']
-                continue
-
-            attr_fn = self.import_func(value['path'])
-
-            if not 'args' in value:
-                value['args'] = []
-            if not 'kwargs' in value:
-                value['kwargs'] = {}
-
-            attr = attr_fn(*value['args'], **value['kwargs'])
-            stimulus_config[key] = attr
-
-        return stimulus_config
 
     def load(self, key: Key) -> np.ndarray:
         """
@@ -105,14 +65,14 @@ class InsilicoStimuliSet(dj.Lookup):
 
         stimulus_config = self.parse_stimulus_config(stimulus_config)
 
-        StimulusSet = stimulus_fn(**stimulus_config)
+        stimulus = stimulus_fn(**stimulus_config)
 
-        return StimulusSet
+        return stimulus
 
 
 @schema
 class ExperimentMethod(dj.Lookup):
-    """Table that contains Stimuli sets and their configurations."""
+    """Table that contains experiment methods and their configurations."""
     definition = """
         # contains methods for optimizing stimuli
         method_fn                           : varchar(128)   # name of the set function
@@ -127,6 +87,7 @@ class ExperimentMethod(dj.Lookup):
     fetch1: Callable
 
     import_func = staticmethod(import_module)
+    parse_method_config = staticmethod(parse_config)
 
     def add_method(self, method_fn: str, method_config: Mapping, comment: str = "",
                    skip_duplicates: bool = False) -> None:
@@ -148,45 +109,6 @@ class ExperimentMethod(dj.Lookup):
             self.insert1(key)
 
         return key
-
-    def parse_method_config(self, method_config):
-        """
-        Parsing of the set config attributes to args and kwargs format, which is passable to the stimulus_fn
-        expecting it to be of the format
-        {
-            parameter1: {
-                path: path_to_type_function,
-                args: list_of_arguments (optional),
-                kwargs: dict_of_keyword_arguments (optional)
-            },
-            parameter2: {
-                path: path_to_type_function,
-                args: list_of_arguments (optional),
-                kwargs: dict_of_keyword_arguments (optional)
-            }
-        }
-        """
-
-        for key, value in method_config.items():
-            if not isinstance(value, dict):
-                continue
-
-            if 'path' not in value:
-                if 'args' in value:
-                    method_config[key] = value['args']
-                continue
-
-            attr_fn = self.import_func(value['path'])
-
-            if not 'args' in value:
-                value['args'] = []
-            if not 'kwargs' in value:
-                value['kwargs'] = {}
-
-            attr = attr_fn(*value['args'], **value['kwargs'])
-            method_config[key] = attr
-
-        return method_config
 
 
 @schema
